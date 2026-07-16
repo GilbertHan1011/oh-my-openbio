@@ -165,7 +165,8 @@ async function assembleSisyphusEnabledConfig(params: AssembleAgentConfigParams):
   if (params.pluginConfig.sisyphus_agent?.default_builder_enabled ?? false) {
     const { name: _buildName, ...buildConfigWithoutName } = configAgent?.build ?? {};
     const migratedBuildConfig = migrateAgentConfig(buildConfigWithoutName);
-    const override = params.pluginConfig.agents?.["OpenCode-Builder"];
+  const override = params.pluginConfig.agents?.["OpenCode-Builder"]
+    ?? Object.entries(params.pluginConfig.agents ?? {}).find(([name]) => name.toLowerCase() === "opencode-builder")?.[1];
     const base = {
       ...migratedBuildConfig,
       description: `${(configAgent?.build?.description as string) ?? "Build agent"} (OpenCode default)`,

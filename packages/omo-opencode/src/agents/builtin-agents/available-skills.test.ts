@@ -200,4 +200,80 @@ describe("buildAvailableSkills - agentName filtering", () => {
     // then
     expect(result.map((s) => s.description)).toContain(customDescription)
   })
+
+  it("removes builtin skills whose bare name is in unavailable_skills", () => {
+    // given
+    const discoveredSkills: DiscoveredSkills = []
+
+    // when
+    const result = buildAvailableSkills(
+      discoveredSkills,
+      undefined,
+      undefined,
+      undefined,
+      "hermes",
+      ["data-analysis-workflow", "planning-with-files"],
+    )
+
+    // then
+    expect(result.map((s) => s.name)).not.toContain("data-analysis-workflow")
+    expect(result.map((s) => s.name)).not.toContain("planning-with-files")
+  })
+
+  it("removes builtin skills whose shared/ alias is in unavailable_skills", () => {
+    // given
+    const discoveredSkills: DiscoveredSkills = []
+
+    // when
+    const result = buildAvailableSkills(
+      discoveredSkills,
+      undefined,
+      undefined,
+      undefined,
+      "hermes",
+      ["shared/data-analysis-workflow"],
+    )
+
+    // then
+    expect(result.map((s) => s.name)).not.toContain("data-analysis-workflow")
+  })
+
+  it("removes discovered skills whose bare name is in unavailable_skills", () => {
+    // given
+    const blockedSkill = makeSkill("custom-blocked-skill", {
+      description: "Should be hidden from Hermes",
+    })
+
+    // when
+    const result = buildAvailableSkills(
+      [blockedSkill],
+      undefined,
+      undefined,
+      undefined,
+      "hermes",
+      ["custom-blocked-skill"],
+    )
+
+    // then
+    expect(result.map((s) => s.name)).not.toContain("custom-blocked-skill")
+  })
+
+  it("does not remove skills for agents without unavailable_skills entries", () => {
+    // given
+    const discoveredSkills: DiscoveredSkills = []
+
+    // when
+    const result = buildAvailableSkills(
+      discoveredSkills,
+      undefined,
+      undefined,
+      undefined,
+      "sisyphus",
+      [],
+    )
+
+    // then — none of the agent restrictions filter the listing
+    // The exact list is implementation-defined; the contract is "no filtering without deny entries".
+    expect(result.length).toBeGreaterThan(0)
+  })
 })
