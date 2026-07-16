@@ -45,6 +45,14 @@
 
     // Lightweight task executor for simple jobs
     "sisyphus-junior": { "model": "opencode/gpt-5-nano" },
+
+    // Data-analysis orchestrator: autoloads data-analysis-workflow + planning-with-files
+    "ariadne": {},
+
+    // Planning orchestrator: explicitly excludes the data workflows
+    "hermes": {
+      "unavailable_skills": ["data-analysis-workflow", "planning-with-files"],
+    },
   },
 
   "categories": {

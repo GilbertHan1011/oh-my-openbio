@@ -1,4 +1,4 @@
-import { stripInvisibleAgentCharacters } from "./agent-display-names"
+import { getAgentConfigKey, stripInvisibleAgentCharacters } from "./agent-display-names"
 
 /**
  * Agent tool restrictions for session.prompt calls.
@@ -57,6 +57,13 @@ const AGENT_RESTRICTIONS: Record<string, Record<string, boolean>> = {
   "sisyphus-junior": {
     task: false,
   },
+
+  ariadne: {
+    call_omo_agent: false,
+  },
+  hermes: {
+    call_omo_agent: false,
+  },
 }
 
 type AgentToolRestrictionsOptions = {
@@ -65,8 +72,10 @@ type AgentToolRestrictionsOptions = {
 
 export function getAgentToolRestrictions(agentName: string, options: AgentToolRestrictionsOptions = {}): Record<string, boolean> {
   const stripped = stripInvisibleAgentCharacters(agentName)
-  const agentRestrictions = AGENT_RESTRICTIONS[stripped]
-    ?? Object.entries(AGENT_RESTRICTIONS).find(([key]) => key.toLowerCase() === stripped.toLowerCase())?.[1]
+  const configKey = getAgentConfigKey(stripped)
+  const agentRestrictions = AGENT_RESTRICTIONS[configKey]
+    ?? AGENT_RESTRICTIONS[stripped]
+    ?? Object.entries(AGENT_RESTRICTIONS).find(([key]) => key.toLowerCase() === configKey.toLowerCase())?.[1]
     ?? {}
 
   return {

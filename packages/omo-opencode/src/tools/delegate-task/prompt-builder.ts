@@ -2,6 +2,8 @@ import type { BuildSystemContentInput } from "./types"
 import type { AvailableSkill } from "../../agents/dynamic-agent-prompt-builder"
 import { buildPlanAgentSystemPrepend, isPlanAgent } from "./constants"
 import { buildSystemContentWithTokenLimit } from "./token-limiter"
+import { buildAgentUnavailableSet, isSkillUnavailable } from "../../agents/agent-skill-availability"
+import { getAgentConfigKey } from "../../shared/agent-display-names"
 
 const FREE_OR_LOCAL_PROMPT_TOKEN_LIMIT = 24000
 const PLAN_AGENT_PROMPT_BASE = `
@@ -82,9 +84,13 @@ export function buildSystemContent(input: BuildSystemContentInput): string | und
     availableCategories,
     availableSkills,
     nativeSkillInfos,
+    unavailableSkills,
   } = input
 
+  const unavailableSet = buildAgentUnavailableSet(unavailableSkills)
   const effectiveAvailableSkills = mergeNativeIntoAvailable(availableSkills ?? [], nativeSkillInfos)
+    .filter((skill) => !isSkillUnavailable(skill.name, unavailableSet))
+    .filter((skill) => !skill.agent || !agentName || getAgentConfigKey(skill.agent) === getAgentConfigKey(agentName))
 
   const isPlan = isPlanAgent(agentName)
   const planAgentPrepend = isPlan

@@ -120,6 +120,19 @@ export interface DelegateTaskToolOptions {
     dirs(): string[] | Promise<string[]>
   }
   getLoadedSkills?: () => Promise<LoadedSkill[]>
+  /**
+   * Agent-scoped denylist of skill names. Skills whose name (or `shared/<name>`
+   * alias) matches an entry here are filtered out of the `load_skills` argument
+   * and the `<available_skills>` section in the subagent prompt.
+   */
+  unavailableSkills?: readonly string[]
+  /**
+   * Resolver that maps the target agent name to its
+   * `unavailable_skills` denylist. Used when the same `task` tool is shared
+   * across multiple agents and the denylist must be evaluated at call time.
+   * Takes precedence over the static `unavailableSkills` field.
+   */
+  unavailableSkillsResolver?: (agentName: string | undefined) => readonly string[] | undefined
 }
 
 import type { DelegatedModelConfig } from "../../shared/model-resolution-types"
@@ -138,4 +151,11 @@ export interface BuildSystemContentInput {
   availableSkills?: AvailableSkill[]
   /** OpenCode native skill list to merge into the <available_skills> block. */
   nativeSkillInfos?: { name: string; description: string; location: string }[]
+  /**
+   * Agent-scoped denylist of skill names. Skills whose name (or `shared/<name>`
+   * alias) matches an entry here are dropped from the `<available_skills>`
+   * section in the subagent prompt and from the plan-agent prepend's skills
+   * list.
+   */
+  unavailableSkills?: readonly string[]
 }

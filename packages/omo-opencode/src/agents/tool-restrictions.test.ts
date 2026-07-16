@@ -68,6 +68,20 @@ describe("read-only agent tool restrictions", () => {
     expect(restrictions.task).toBe(false)
   })
 
+  test("denies call_omo_agent for Ariadne and Hermes delegated prompts", () => {
+    // given
+    const agentNames = ["ariadne", "Ariadne - Data Analyst", "Hermes", "Hermes - Fast Executor"]
+
+    // when
+    const restrictions = agentNames.map((agentName) => getAgentToolRestrictions(agentName))
+
+    // then
+    for (const restriction of restrictions) {
+      expect(restriction.call_omo_agent).toBe(false)
+      expect(restriction.task).toBeUndefined()
+    }
+  })
+
   describe("Oracle", () => {
     test("denies all file-writing tools", () => {
       // given

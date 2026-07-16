@@ -13,6 +13,8 @@ import { getSisyphusJuniorModelOverride } from "./tool-registry-team-tools"
 import { createNativeSkills, getPluginInputNativeSkills } from "./native-skills"
 import { createSkillContext } from "./skill-context"
 import { createRuntimeSkillsResolver, readRuntimeHostSkills } from "./runtime-skill-resolver"
+import { getAgentConfigKey } from "../shared/agent-display-names"
+import { resolveAgentUnavailableSkills } from "../agents/agent-skill-availability"
 
 export function createCoreTools(args: {
   readonly ctx: PluginContext
@@ -46,6 +48,23 @@ export function createCoreTools(args: {
     buildMergedSkills: async (hostSkills) =>
       (await createSkillContext({ directory: ctx.directory, pluginConfig, hostSkills })).mergedSkills,
   })
+
+  // The task and skill tools are shared across agents, so agent-level policy is
+  // resolved at call time. Global disabled_skills remains a separate filter.
+  const agentOverrides = pluginConfig.agents ?? {}
+  const resolveUnavailableSkills = (
+    agentName: string | undefined,
+  ): readonly string[] | undefined => {
+    if (!agentName) return undefined
+    const key = getAgentConfigKey(agentName)
+    const override = agentOverrides[key]
+      ?? Object.entries(agentOverrides).find(([k]) => k.toLowerCase() === agentName.toLowerCase())?.[1]
+    return resolveAgentUnavailableSkills(key, override?.unavailable_skills)
+  }
+  const configuredAgentNames = new Set([...Object.keys(agentOverrides), "hermes"])
+  const globallyUnavailableSkills = Array.from(configuredAgentNames)
+    .flatMap((agentName) => resolveUnavailableSkills(agentName) ?? [])
+
   const delegateTask = factories.createDelegateTask({
     manager: managers.backgroundManager,
     client: ctx.client,
@@ -64,6 +83,7 @@ export function createCoreTools(args: {
     sisyphusAgentConfig: pluginConfig.sisyphus_agent,
     syncPollTimeoutMs: pluginConfig.background_task?.syncPollTimeoutMs,
     modelFallbackControllerAccessor: managers.modelFallbackControllerAccessor,
+    unavailableSkillsResolver: resolveUnavailableSkills,
     onSyncSessionCreated: async (event) => {
       log("[index] onSyncSessionCreated callback", {
         sessionID: event.sessionID,
@@ -99,6 +119,7 @@ export function createCoreTools(args: {
     manager: managers.skillMcpManager,
     getLoadedSkills,
     getSessionID: getSessionIDForMcp,
+    unavailableSkillsResolver: resolveUnavailableSkills,
   })
   const commands = factories.discoverCommandsSync(ctx.directory, {
     pluginsEnabled: pluginConfig.claude_code?.plugins ?? true,
@@ -119,6 +140,8 @@ export function createCoreTools(args: {
     pluginsEnabled: pluginConfig.claude_code?.plugins ?? true,
     enabledPluginsOverride: pluginConfig.claude_code?.plugins_override,
     includeSkillsInDescription: true,
+    unavailableSkills: globallyUnavailableSkills,
+    unavailableSkillsResolver: resolveUnavailableSkills,
   })
 
   const tools: ToolsRecord = {

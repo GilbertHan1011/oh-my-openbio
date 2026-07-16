@@ -148,7 +148,9 @@ Here's a practical starting configuration:
 
 ### Agents
 
-Override built-in agent settings. Available agents: `sisyphus`, `hephaestus`, `prometheus`, `oracle`, `librarian`, `explore`, `multimodal-looker`, `metis`, `momus`, `atlas`, `sisyphus-junior`.
+Override built-in agent settings. Available agents: `sisyphus`, `hephaestus`, `prometheus`, `oracle`, `librarian`, `explore`, `multimodal-looker`, `metis`, `momus`, `atlas`, `sisyphus-junior`, `ariadne`, `hermes`.
+
+Ariadne is the data-analysis orchestrator — autoloads the `data-analysis-workflow` and `planning-with-files` skills. Hermes is the planning-orchestrator — explicitly excludes those skills (use `unavailable_skills` below to override per agent).
 
 ```json
 {
@@ -180,6 +182,7 @@ Agent tab cycling defaults to Sisyphus, Hephaestus, Prometheus, Atlas. Override 
 | `prompt`          | string         | Replace system prompt. Supports `file://` URIs                  |
 | `prompt_append`   | string         | Append to system prompt. Supports `file://` URIs                |
 | `tools`           | array         | Allowed tools list                                     |
+| `unavailable_skills` | array      | Skill names (bare or `shared/`-prefixed) this agent must never see. Monotonic — base + override are unioned |
 | `disable`         | boolean       | Disable this agent                                     |
 | `mode`            | string        | Agent mode                                             |
 | `color`           | string        | UI color                                               |
@@ -193,6 +196,35 @@ Agent tab cycling defaults to Sisyphus, Hephaestus, Prometheus, Atlas. Override 
 | `providerOptions` | object        | Provider-specific options                              |
 
 Prometheus is the exception for prompt replacement: its mandatory planner prompt always remains active so it can load `shared/ulw-plan` first. For `agents.prometheus`, both `prompt` and `prompt_append` are appended to the mandatory base prompt instead of replacing it.
+
+#### Per-Agent Skill Denylist (`unavailable_skills`)
+
+Hide specific skills from a single agent without disabling them globally. Useful for keeping a planning agent lean or restricting a coding agent from invoking workflow skills it should not call.
+
+```jsonc
+{
+  "agents": {
+    "hermes": {
+      "unavailable_skills": ["data-analysis-workflow", "planning-with-files"]
+    }
+  }
+}
+```
+
+**Precedence semantics:**
+
+- `unavailable_skills` is a **monotonic Agent denylist** — base config and user override are unioned. A skill denied at one level stays denied.
+- The **Skill frontmatter `agent:` allowlist wins** over `unavailable_skills`. A skill that declares `agent: ariadne` is visible only to Ariadne regardless of any agent's `unavailable_skills`.
+- Names are matched case-insensitively. Both `data-analysis-workflow` and `shared/data-analysis-workflow` resolve to the same canonical entry.
+- The denylist is enforced in all 4 skill-visibility paths: the static `cachedDescription` (skill tool + delegate task system prompt), the execute-time skill tool throw, the delegate-task `resolveSkillContent` filter, and the `available-skills` static filter.
+
+**Use cases:**
+
+- Prevent a planning-only agent from invoking data-analysis workflows.
+- Restrict a coding agent from invoking planning skills.
+- Per-tenant or per-role overrides without forking the skill.
+
+**Reference config:** The reference OMO config marks Hermes as the planning orchestrator and explicitly excludes `data-analysis-workflow` and `planning-with-files` from its skill set. Ariadne is the data-analysis orchestrator and autoloads both.
 
 #### Anthropic Extended Thinking
 

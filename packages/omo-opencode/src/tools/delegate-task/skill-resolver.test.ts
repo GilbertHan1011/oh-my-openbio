@@ -50,17 +50,32 @@ describe("resolveSkillContent — nativeSkills integration", () => {
     expect(result).toEqual({ content: undefined, contents: [], error: null })
   })
 
+  it("#given a target-denied shared alias #when resolved #then rejects before loading content", async () => {
+    const result = await resolveSkillContent(["shared/data-analysis-workflow"], {
+      targetAgent: "hermes",
+      unavailableSkills: ["Data-Analysis-Workflow"],
+      getLoadedSkills: async () => [
+        makeLoadedSkill("shared/data-analysis-workflow", "DENIED_SKILL_BODY"),
+      ],
+    })
+
+    expect(result.content).toBeUndefined()
+    expect(result.error).toContain('Skill "shared/data-analysis-workflow" is unavailable')
+    expect(result.error).toContain('target agent "hermes"')
+    expect(result.error).not.toContain("DENIED_SKILL_BODY")
+  })
+
   it("#given a skill that lives only in nativeSkills #when resolved #then returns its content", async () => {
     // given
     const native = makeNativeSkill(
-      "test-driven-development",
+      "native-only-skill",
       "TDD discipline",
       "## Red-Green-Refactor\nWrite a failing test first.",
     )
     const nativeSkills = makeNativeAccessor([native])
 
     // when
-    const result = await resolveSkillContent(["test-driven-development"], {
+    const result = await resolveSkillContent(["native-only-skill"], {
       nativeSkills,
       directory: TEST_DIR,
     })

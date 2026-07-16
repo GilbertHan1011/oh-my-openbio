@@ -22,6 +22,8 @@ const TASK_ALLOWED_AGENT_NAMES = [
   "sisyphus",
   "atlas",
   "hephaestus",
+  "ariadne",
+  "hermes",
 ] as const
 
 function createParams(agentNames: readonly string[]): {
@@ -92,6 +94,9 @@ describe("applyToolConfig task permission hard denials", () => {
 
           const permission = requirePermission(params.agentResult, agentName)
           expect(permission.task).toBe("allow")
+          if (agentName === "ariadne" || agentName === "hermes") {
+            expect(permission.call_omo_agent).toBe("deny")
+          }
         })
       }
     })

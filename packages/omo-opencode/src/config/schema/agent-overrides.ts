@@ -11,6 +11,8 @@ export const AgentOverrideConfigSchema = z.object({
   category: z.string().optional(),
   /** Skill names to inject into agent prompt */
   skills: z.array(z.string()).optional(),
+  /** Skill names this agent is not permitted to use or see */
+  unavailable_skills: z.array(z.string()).optional(),
   temperature: z.number().min(0).max(2).optional(),
   top_p: z.number().min(0).max(1).optional(),
   prompt: z.string().optional(),
@@ -74,6 +76,8 @@ export const AgentOverridesSchema = z.object({
   explore: AgentOverrideConfigSchema.optional(),
   "multimodal-looker": AgentOverrideConfigSchema.optional(),
   atlas: AgentOverrideConfigSchema.optional(),
+  ariadne: AgentOverrideConfigSchema.optional(),
+  hermes: AgentOverrideConfigSchema.optional(),
 }).catchall(AgentOverrideConfigSchema.optional())
 
 export type AgentOverrideConfig = z.infer<typeof AgentOverrideConfigSchema>

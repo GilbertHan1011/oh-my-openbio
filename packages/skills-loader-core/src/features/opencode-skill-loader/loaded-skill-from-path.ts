@@ -19,9 +19,10 @@ export async function loadSkillFromPath(options: {
 
   try {
     const content = await fs.readFile(options.skillPath, "utf-8")
-    const { data, body } = parseFrontmatter<SkillMetadata>(content)
+    const resolvedContent = content.replaceAll("{{skill_dir}}", options.resolvedPath)
+    const { data, body } = parseFrontmatter<SkillMetadata>(resolvedContent)
 
-    const frontmatterMcp = parseSkillMcpConfigFromFrontmatter(content)
+    const frontmatterMcp = parseSkillMcpConfigFromFrontmatter(resolvedContent)
     const mcpJsonMcp = await loadMcpJsonFromDir(options.resolvedPath)
     const mcpConfig = mcpJsonMcp || frontmatterMcp
 

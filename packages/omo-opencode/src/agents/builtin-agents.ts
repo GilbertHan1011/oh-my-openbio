@@ -13,6 +13,8 @@ import { createAtlasAgent, atlasPromptMetadata } from "./atlas"
 import { createMomusAgent, momusPromptMetadata } from "./momus"
 import { createHephaestusAgent } from "./hephaestus"
 import { createSisyphusJuniorAgentWithOverrides } from "./sisyphus-junior"
+import { createAriadneAgent, ARIADNE_PROMPT_METADATA } from "./ariadne"
+import { createHermesAgent, HERMES_PROMPT_METADATA } from "./hermes"
 import type { AvailableCategory } from "./dynamic-agent-prompt-builder"
 import {
   fetchAvailableModels,
@@ -42,6 +44,8 @@ const agentSources: Record<BuiltinAgentName, AgentSource> = {
   // because it needs OrchestratorContext, not just a model string
   atlas: createAtlasAgent as AgentFactory,
   "sisyphus-junior": createSisyphusJuniorAgentWithOverrides as AgentFactory,
+  ariadne: createAriadneAgent,
+  hermes: createHermesAgent,
 }
 
 /**
@@ -56,6 +60,8 @@ const agentMetadata: Partial<Record<BuiltinAgentName, AgentPromptMetadata>> = {
   metis: metisPromptMetadata,
   momus: momusPromptMetadata,
   atlas: atlasPromptMetadata,
+  ariadne: ARIADNE_PROMPT_METADATA,
+  hermes: HERMES_PROMPT_METADATA,
 }
 
 export async function createBuiltinAgents(
@@ -101,7 +107,7 @@ export async function createBuiltinAgents(
   }))
 
   // Collect general agents first (for availableAgents), but don't add to result yet
-  const { pendingAgentConfigs, availableAgents } = collectPendingBuiltinAgents({
+  const { pendingAgentConfigs, availableAgents } = await collectPendingBuiltinAgents({
     agentSources,
     agentMetadata,
     disabledAgents,
@@ -119,6 +125,10 @@ export async function createBuiltinAgents(
     disableOmoEnv,
   })
 
+  const sisyphusUnavailableSkills = agentOverrides["sisyphus"]?.unavailable_skills
+  const hephaestusUnavailableSkills = agentOverrides["hephaestus"]?.unavailable_skills
+  const atlasUnavailableSkills = agentOverrides["atlas"]?.unavailable_skills
+
   const sisyphusConfig = maybeCreateSisyphusConfig({
     disabledAgents,
     agentOverrides,
@@ -127,7 +137,7 @@ export async function createBuiltinAgents(
     systemDefaultModel,
     isFirstRunNoCache,
     availableAgents,
-    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "sisyphus"),
+    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "sisyphus", sisyphusUnavailableSkills),
     availableCategories,
     mergedCategories,
     directory,
@@ -146,7 +156,7 @@ export async function createBuiltinAgents(
     systemDefaultModel,
     isFirstRunNoCache,
     availableAgents,
-    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "hephaestus"),
+    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "hephaestus", hephaestusUnavailableSkills),
     availableCategories,
     mergedCategories,
     directory,
@@ -169,7 +179,7 @@ export async function createBuiltinAgents(
     availableModels,
     systemDefaultModel,
     availableAgents,
-    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "atlas"),
+    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "atlas", atlasUnavailableSkills),
     mergedCategories,
     directory,
     userCategories: categories,

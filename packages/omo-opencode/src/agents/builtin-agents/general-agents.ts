@@ -5,13 +5,13 @@ import type { BrowserAutomationProvider } from "../../config/schema"
 import type { AvailableAgent } from "../dynamic-agent-prompt-builder"
 import { AGENT_MODEL_REQUIREMENTS, isModelAvailable } from "../../shared"
 import { buildAgent, isFactory } from "../agent-builder"
-import { resolveAgentSkills } from "../agent-skill-resolution"
+import { resolveAgentSkillsAsync } from "../agent-skill-resolution"
 import { applyOverrides } from "./agent-overrides"
 import { applyEnvironmentContext } from "./environment-context"
 import { applyModelResolution, getFirstFallbackModel } from "./model-resolution"
 import { log } from "../../shared/logger"
 
-export function collectPendingBuiltinAgents(input: {
+export async function collectPendingBuiltinAgents(input: {
   agentSources: Record<BuiltinAgentName, import("../agent-builder").AgentSource>
   agentMetadata: Partial<Record<BuiltinAgentName, AgentPromptMetadata>>
   disabledAgents: string[]
@@ -28,7 +28,7 @@ export function collectPendingBuiltinAgents(input: {
   teamModeEnabled?: boolean
   useTaskSystem?: boolean
   disableOmoEnv?: boolean
-}): { pendingAgentConfigs: Map<string, AgentConfig>; availableAgents: AvailableAgent[] } {
+}): Promise<{ pendingAgentConfigs: Map<string, AgentConfig>; availableAgents: AvailableAgent[] }> {
   const {
     agentSources,
     agentMetadata,
@@ -117,7 +117,14 @@ export function collectPendingBuiltinAgents(input: {
     }
 
     config = applyOverrides(config, override, mergedCategories, directory)
-    config = resolveAgentSkills(config, { gitMasterConfig, browserProvider, disabledSkills, teamModeEnabled })
+    config = await resolveAgentSkillsAsync(config, {
+      gitMasterConfig,
+      browserProvider,
+      disabledSkills,
+      teamModeEnabled,
+      directory,
+      agentName,
+    })
 
     // Store for later - will be added after sisyphus and hephaestus
     pendingAgentConfigs.set(name, config)

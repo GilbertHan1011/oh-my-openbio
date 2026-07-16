@@ -6,6 +6,7 @@ import { AGENT_MODEL_REQUIREMENTS, isAnyProviderConnected } from "../../shared"
 import { log } from "../../shared/logger"
 import { createHephaestusAgent, isHephaestusSupportedModel } from "../hephaestus"
 import { applyEnvironmentContext } from "./environment-context"
+import { resolveAgentSkills } from "../agent-skill-resolution"
 import { applyCategoryOverride, mergeAgentConfig } from "./agent-overrides"
 import { applyModelResolution, getFirstFallbackModel } from "./model-resolution"
 import { applyFrontierToolSchemaPermission } from "../frontier-tool-schema-guard"
@@ -131,5 +132,8 @@ export function maybeCreateHephaestusConfig(input: {
     (hephaestusOverride as { tools?: Record<string, boolean> } | undefined)?.tools
   )
 
-  return hephaestusConfig
+  return resolveAgentSkills(hephaestusConfig, {
+    agentName: "hephaestus",
+    availableSkills,
+  })
 }

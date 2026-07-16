@@ -12,7 +12,8 @@ export async function executeBackgroundContinuation(
   ctx: ToolContextWithMetadata,
   executorCtx: ExecutorContext,
   parentContext: ParentContext,
-  systemContent?: string
+  systemContent?: string,
+  expectedAgent?: string,
 ): Promise<string> {
   const { manager } = executorCtx
   const taskID = getTaskID(args)
@@ -28,6 +29,7 @@ export async function executeBackgroundContinuation(
 
     const task = await manager.resume({
       sessionId: taskID,
+      expectedAgent,
       prompt: effectivePrompt,
       parentSessionId: parentContext.sessionID,
       parentMessageId: parentContext.messageID,

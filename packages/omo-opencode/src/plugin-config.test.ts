@@ -150,6 +150,98 @@ describe("mergeConfigs", () => {
       expect(result.agents?.explore).toMatchObject({ model: "anthropic/claude-haiku-4-5" });
     });
 
+    it("should union agent unavailable skills monotonically across config layers", () => {
+      const base = createConfig({
+        agents: {
+          hermes: { unavailable_skills: ["Data-Analysis-Workflow", "shared/Planning-With-Files"] },
+        },
+      });
+
+      const override = createConfig({
+        agents: {
+          hermes: { unavailable_skills: ["data-analysis-workflow", "other-skill"] },
+        },
+      });
+
+      const result = mergeConfigs(base, override);
+
+      expect(result.agents?.hermes?.unavailable_skills).toEqual([
+        "Data-Analysis-Workflow",
+        "shared/Planning-With-Files",
+        "data-analysis-workflow",
+        "other-skill",
+      ]);
+    });
+
+    it("should union unavailable skills across case-variant agent keys", () => {
+      const base = createConfig({ agents: { Hermes: { unavailable_skills: ["base-skill"] } } });
+      const override = createConfig({ agents: { hermes: { unavailable_skills: ["override-skill"] } } });
+
+      const result = mergeConfigs(base, override);
+
+      expect(result.agents?.hermes?.unavailable_skills).toEqual(["base-skill", "override-skill"]);
+      expect(result.agents?.Hermes).toBeUndefined();
+    });
+
+    it("should union same-layer case-variant agent entries", () => {
+      const base = createConfig({
+        agents: {
+          Hermes: { unavailable_skills: ["base-skill"] },
+          hermes: { unavailable_skills: ["same-layer-skill"] },
+        },
+      });
+
+      const result = mergeConfigs(base, {});
+
+      expect(result.agents?.hermes?.unavailable_skills).toHaveLength(2);
+      expect(result.agents?.hermes?.unavailable_skills).toEqual(expect.arrayContaining([
+        "base-skill",
+        "same-layer-skill",
+      ]));
+      expect(result.agents?.Hermes).toBeUndefined();
+    });
+
+    it("should preserve the OpenCode-Builder override key", () => {
+      const base = createConfig({ agents: { "OpenCode-Builder": { temperature: 0.2 } } });
+
+      const result = mergeConfigs(base, {});
+
+      expect(result.agents?.["OpenCode-Builder"]?.temperature).toBe(0.2);
+      expect(result.agents?.["opencode-builder"]).toBeUndefined();
+    });
+
+    it("should preserve the OpenCode-Builder override key across base+override case variants", () => {
+      const base = createConfig({ agents: { "OpenCode-Builder": { temperature: 0.2 } } });
+      const override = createConfig({ agents: { "OpenCode-Builder": { top_p: 0.9 } } });
+
+      const result = mergeConfigs(base, override);
+
+      expect(result.agents?.["OpenCode-Builder"]?.temperature).toBe(0.2);
+      expect(result.agents?.["OpenCode-Builder"]?.top_p).toBe(0.9);
+      expect(result.agents?.["opencode-builder"]).toBeUndefined();
+    });
+
+    it("should merge custom agent keys case-insensitively", () => {
+      const base = createConfig({ agents: { MyAgent: { temperature: 0.2 } } });
+      const override = createConfig({ agents: { myagent: { top_p: 0.9 } } });
+
+      const result = mergeConfigs(base, override);
+
+      // The merged key is lowercase (the canonical form) for unknown custom agents,
+      // matching the case-insensitive merge contract for built-in agents.
+      expect(result.agents?.myagent).toMatchObject({ temperature: 0.2, top_p: 0.9 });
+      expect(result.agents?.MyAgent).toBeUndefined();
+    });
+
+    it("should union custom agent unavailable skills monotonically across case variants", () => {
+      const base = createConfig({ agents: { MyAgent: { unavailable_skills: ["a-skill"] } } });
+      const override = createConfig({ agents: { myagent: { unavailable_skills: ["b-skill"] } } });
+
+      const result = mergeConfigs(base, override);
+
+      expect(result.agents?.myagent?.unavailable_skills).toEqual(["a-skill", "b-skill"]);
+    });
+
     it("should deep merge team_mode", () => {
       const base = createConfig({
         team_mode: {

@@ -24,9 +24,40 @@ import {
   mergeNativeSkillInfos,
   mergeNativeSkills,
 } from "./native-skills"
+import {
+  buildAgentUnavailableSet,
+  findUnknownUnavailableSkills,
+  isSkillUnavailable,
+} from "../../agents/agent-skill-availability"
+import type { AgentUnavailableSet } from "../../agents/agent-skill-availability"
+import { log } from "../../shared/logger"
+import { getAgentConfigKey } from "../../shared/agent-display-names"
 
 export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
   let cachedDescription: string | null = null
+  const descriptionsByAgent = new Map<string, string>()
+  const reportedUnknownAgents = new Set<string>()
+  const hasAgentScopedAvailability = options.unavailableSkillsResolver !== undefined
+
+  // Resolve the active agent's denylist at call time. The static
+  // `options.unavailableSkills` is honored when no resolver is provided; the
+  // resolver takes precedence because the same `skill` tool is shared across
+  // many agents and the denylist depends on the caller.
+  const resolveUnavailable = (agentName: string | undefined): AgentUnavailableSet => {
+    const resolved = agentName !== undefined && options.unavailableSkillsResolver
+      ? options.unavailableSkillsResolver(agentName)
+      : options.unavailableSkills
+    return buildAgentUnavailableSet(resolved)
+  }
+
+  const filterUnavailableSkills = (
+    skills: LoadedSkill[],
+    agentName: string | undefined,
+  ): LoadedSkill[] => {
+    const set = resolveUnavailable(agentName)
+    if (set.entries.size === 0) return skills
+    return skills.filter(s => !isSkillUnavailable(s.name, set))
+  }
 
   const getBaseSkills = async (context?: ToolContext): Promise<LoadedSkill[]> => {
     if (shouldInvalidateSkillCacheForSession(context?.sessionID)) {
@@ -58,10 +89,10 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
     }
   }
 
-  const getSkills = async (context?: ToolContext): Promise<LoadedSkill[]> => {
+  const getSkills = async (context?: ToolContext, agentName = context?.agent): Promise<LoadedSkill[]> => {
     const allSkills = await getBaseSkills(context)
     await mergeNativeSkillsInto(allSkills)
-    return allSkills
+    return filterUnavailableSkills(allSkills, agentName)
   }
 
   const getCommands = (): CommandInfo[] => {
@@ -74,22 +105,27 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
   }
 
   const buildDescription = async (force = false): Promise<string> => {
-    if (!force && cachedDescription) return cachedDescription
+    const agentName = options.getDescriptionAgent?.()
+    const cacheKey = agentName ?? "__global__"
+    const cachedForAgent = descriptionsByAgent.get(cacheKey)
+    if (!force && cachedForAgent) return cachedForAgent
     const commands = getCommands()
-    const skills = await getSkills()
-    // Exclude agent-restricted skills from the description: they must not be
-    // visible to agents that are not their designated owner.  The execute-time
-    // check already enforces the restriction at call time.
+    const skills = await getSkills(undefined, agentName)
     const publicSkills = skills.filter((s) => !s.definition.agent)
     const skillInfos = publicSkills.map(loadedSkillToInfo)
-    cachedDescription = formatCombinedDescription(skillInfos, commands, {
+    const description = formatCombinedDescription(skillInfos, commands, {
       includeSkills: options.includeSkillsInDescription,
     })
-    return cachedDescription
+    descriptionsByAgent.set(cacheKey, description)
+    if (agentName === undefined) cachedDescription = description
+    return description
   }
 
   if (options.skills !== undefined) {
-    const publicSkills = options.skills.filter((s) => !s.definition.agent)
+    const staticSet = buildAgentUnavailableSet(options.unavailableSkills)
+    const publicSkills = options.skills
+      .filter((s) => !s.definition.agent)
+      .filter((s) => !isSkillUnavailable(s.name, staticSet))
     const skillInfos = publicSkills.map(loadedSkillToInfo)
     const commandsForDescription = options.commands ?? []
     let needsAsyncRefresh = false
@@ -101,6 +137,13 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
           needsAsyncRefresh = true
         } else {
           mergeNativeSkillInfos(skillInfos, nativeAll, options.disabledSkills)
+          if (staticSet.entries.size > 0) {
+            for (let i = skillInfos.length - 1; i >= 0; i--) {
+              if (isSkillUnavailable(skillInfos[i]!.name, staticSet)) {
+                skillInfos.splice(i, 1)
+              }
+            }
+          }
         }
       } catch (error) {
         if (!(error instanceof Error)) throw error
@@ -110,7 +153,8 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
     cachedDescription = formatCombinedDescription(skillInfos, commandsForDescription, {
       includeSkills: options.includeSkillsInDescription,
     })
-    if (needsAsyncRefresh) {
+    descriptionsByAgent.set("__global__", cachedDescription)
+    if (needsAsyncRefresh || options.getDescriptionAgent) {
       void buildDescription(true)
     }
   } else if (options.commands !== undefined) {
@@ -121,6 +165,12 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
 
   return tool({
     get description() {
+      const agentName = options.getDescriptionAgent?.()
+      const agentDescription = descriptionsByAgent.get(agentName ?? "__global__")
+      if (agentDescription) return agentDescription
+      if (agentName !== undefined) {
+        void buildDescription(true)
+      }
       if (cachedDescription === null) {
         void buildDescription()
       }
@@ -145,11 +195,35 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
         matchedSkill = matchSkillByName(skills, requestedName)
       }
 
-      cachedDescription = formatCombinedDescription(skills.map(loadedSkillToInfo), commands, {
-        includeSkills: options.includeSkillsInDescription,
-      })
+      const visibleSkills = filterUnavailableSkills(skills, ctx?.agent)
+      const denySet = resolveUnavailable(ctx?.agent)
+      const agentName = ctx?.agent
+      if (agentName !== undefined && !reportedUnknownAgents.has(agentName)) {
+        const unknownSkills = findUnknownUnavailableSkills(
+          Array.from(denySet.entries.keys()),
+          skills.map((skill) => skill.name),
+        )
+        if (unknownSkills.length > 0) {
+          log("Unknown unavailable_skills entries retained", {
+            agent: agentName,
+            skills: unknownSkills,
+          })
+        }
+        reportedUnknownAgents.add(agentName)
+      }
+      if (!hasAgentScopedAvailability) {
+        cachedDescription = formatCombinedDescription(visibleSkills.map(loadedSkillToInfo), commands, {
+          includeSkills: options.includeSkillsInDescription,
+        })
+      }
 
       if (matchedSkill) {
+        if (isSkillUnavailable(matchedSkill.name, denySet)) {
+          throw new Error(
+            `Skill "${matchedSkill.name}" is unavailable for agent "${ctx?.agent ?? "unknown"}" (denylisted via unavailable_skills).`
+          )
+        }
+
         await ctx?.ask({
           permission: "skill",
           patterns: [matchedSkill.name],
@@ -159,7 +233,7 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
           },
         })
 
-        if (matchedSkill.definition.agent && (!ctx?.agent || matchedSkill.definition.agent !== ctx.agent)) {
+        if (matchedSkill.definition.agent && (!ctx?.agent || getAgentConfigKey(matchedSkill.definition.agent) !== getAgentConfigKey(ctx.agent))) {
           throw new Error(`Skill "${matchedSkill.name}" is restricted to agent "${matchedSkill.definition.agent}"`)
         }
 
@@ -205,7 +279,7 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
         return await formatLoadedCommand(matchedCommand, args.user_message)
       }
 
-      const partialMatches = findPartialMatches(skills, commands, requestedName)
+      const partialMatches = findPartialMatches(visibleSkills, commands, requestedName)
 
       if (partialMatches.length > 0) {
         throw new Error(
@@ -214,7 +288,7 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
       }
 
       const available = [
-        ...skills.map((skill) => skill.name),
+        ...visibleSkills.map((skill) => skill.name),
         ...commands.map((command) => `/${command.name}`),
       ].join(", ")
       throw new Error(

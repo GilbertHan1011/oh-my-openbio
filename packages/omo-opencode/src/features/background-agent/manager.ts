@@ -1308,6 +1308,12 @@ The fallback retry session is now created and can be inspected directly.
       throw new Error(`Task has no sessionID: ${existingTask.id}`)
     }
 
+    if (input.expectedAgent !== undefined && existingTask.agent !== input.expectedAgent) {
+      throw new Error(
+        `Task agent mismatch for session ${input.sessionId}: expected ${input.expectedAgent}, found ${existingTask.agent}`,
+      )
+    }
+
     if (existingTask.status === "running") {
       throw new Error(
         `Task ${existingTask.id} is currently running and cannot accept a continuation prompt. ` +

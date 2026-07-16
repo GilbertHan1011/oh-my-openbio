@@ -5,11 +5,13 @@ import { parseSkillMcpArguments } from "./parse-skill-mcp-arguments"
 import type { SkillMcpArgs } from "./types"
 import type { SkillMcpManager, SkillMcpClientInfo, SkillMcpServerContext } from "../../features/skill-mcp-manager"
 import type { LoadedSkill } from "../../features/opencode-skill-loader/types"
+import { buildAgentUnavailableSet, isSkillUnavailable } from "../../agents/agent-skill-availability"
 
 interface SkillMcpToolOptions {
   manager: SkillMcpManager
   getLoadedSkills: () => LoadedSkill[] | Promise<LoadedSkill[]>
   getSessionID?: () => string | undefined
+  unavailableSkillsResolver?: (agentName?: string) => readonly string[] | undefined
 }
 
 type OperationType = { type: "tool" | "resource" | "prompt"; name: string }
@@ -126,6 +128,11 @@ export function createSkillMcpTool(options: SkillMcpToolOptions): ToolDefinition
       const operation = validateOperationParams(args)
       const skills = await getLoadedSkills()
       const found = findMcpServer(args.mcp_name, skills)
+
+      const unavailable = buildAgentUnavailableSet(options.unavailableSkillsResolver?.(toolContext.agent))
+      if (found && unavailable && isSkillUnavailable(found.skill.name, unavailable)) {
+        throw new Error(`Skill MCP for "${found.skill.name}" is unavailable for agent "${toolContext.agent ?? "unknown"}"`)
+      }
 
       if (!found) {
         const builtinHint = formatBuiltinMcpHint(args.mcp_name)

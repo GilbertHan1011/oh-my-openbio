@@ -18,6 +18,9 @@ import { createDelegateTaskPresentation } from "./tool-description"
 import type { AvailableSkill } from "../../agents/dynamic-agent-prompt-builder"
 import { mergeNativeSkillInfos, type NativeSkillEntry } from "../skill/native-skills"
 import type { SkillInfo } from "../skill/types"
+import { getSessionAgent } from "../../features/claude-code-session-state"
+import { resolveMessageContext } from "../../features/hook-message-injector"
+import { getMessageDir } from "../../shared/opencode-message-dir"
 
 async function loadNativeSkillEntries(
   nativeSkills: DelegateTaskToolOptions["nativeSkills"] | undefined,
@@ -31,6 +34,17 @@ async function loadNativeSkillEntries(
     log("[delegate-task] nativeSkills.all() failed; skipping native skills", { error: errorMessage })
     return []
   }
+}
+
+async function resolveContinuationAgent(
+  taskID: string,
+  client: DelegateTaskToolOptions["client"],
+): Promise<string | undefined> {
+  const inMemoryAgent = getSessionAgent(taskID)
+  if (inMemoryAgent !== undefined) return inMemoryAgent
+
+  const messageContext = await resolveMessageContext(taskID, client, getMessageDir(taskID))
+  return messageContext.prevMessage?.agent ?? messageContext.firstMessageAgent ?? undefined
 }
 
 function buildPromptNativeSkillInfos(
@@ -90,19 +104,13 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
 
       const runInBackground = delegateTaskArgs.run_in_background === true
 
-      const { content: skillContent, contents: skillContents, error: skillError } = await resolveSkillContent(delegateTaskArgs.load_skills, {
-        gitMasterConfig: options.gitMasterConfig,
-        browserProvider: options.browserProvider,
-        disabledSkills: options.disabledSkills,
-        teamModeEnabled: options.teamModeEnabled,
-        directory: options.directory,
-        targetAgent: delegateTaskArgs.subagent_type,
-        nativeSkills: options.nativeSkills,
-        getLoadedSkills: options.getLoadedSkills,
-      })
-      if (skillError) {
-        return skillError
+      const resolveUnavailable = (agentName: string | undefined): readonly string[] => {
+        const resolved = options.unavailableSkillsResolver
+          ? options.unavailableSkillsResolver(agentName)
+          : options.unavailableSkills
+        return resolved ?? []
       }
+
       const nativeSkillEntries = await loadNativeSkillEntries(options.nativeSkills)
       const nativeSkillInfos = buildPromptNativeSkillInfos(
         availableSkills,
@@ -110,21 +118,53 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
         options.disabledSkills,
       )
 
-      const continuationSystemContent = buildSystemContent({
-        skillContent,
-        skillContents,
-        availableCategories,
-        availableSkills,
-        nativeSkillInfos,
-      })
-
       const parentContext = await resolveParentContext(ctx, options.client)
 
       if (delegateTaskArgs.task_id) {
-        if (runInBackground) {
-          return executeBackgroundContinuation(delegateTaskArgs, ctx, options, parentContext, continuationSystemContent)
+        const targetAgent = await resolveContinuationAgent(delegateTaskArgs.task_id, options.client)
+        if (targetAgent === undefined) {
+          return `Cannot continue task "${delegateTaskArgs.task_id}": target agent identity is unavailable.`
         }
-        return executeSyncContinuation(delegateTaskArgs, ctx, options, parentContext, undefined, continuationSystemContent)
+        const unavailableSkills = resolveUnavailable(targetAgent)
+        const skillResolution = await resolveSkillContent(delegateTaskArgs.load_skills, {
+          gitMasterConfig: options.gitMasterConfig,
+          browserProvider: options.browserProvider,
+          disabledSkills: options.disabledSkills,
+          teamModeEnabled: options.teamModeEnabled,
+          directory: options.directory,
+          targetAgent,
+          nativeSkillEntries,
+          getLoadedSkills: options.getLoadedSkills,
+          unavailableSkills,
+        })
+        if (skillResolution.error) return skillResolution.error
+        const continuationSystemContent = buildSystemContent({
+          skillContent: skillResolution.content,
+          skillContents: skillResolution.contents,
+          availableCategories,
+          availableSkills,
+          nativeSkillInfos,
+          unavailableSkills,
+        })
+        if (runInBackground) {
+          return executeBackgroundContinuation(
+            delegateTaskArgs,
+            ctx,
+            options,
+            parentContext,
+            continuationSystemContent,
+            targetAgent,
+          )
+        }
+        return executeSyncContinuation(
+          delegateTaskArgs,
+          ctx,
+          options,
+          parentContext,
+          undefined,
+          continuationSystemContent,
+          targetAgent,
+        )
       }
 
       if (!delegateTaskArgs.category && !delegateTaskArgs.subagent_type) {
@@ -179,22 +219,15 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
           willForceBackground: isUnstableAgent && isRunInBackgroundExplicitlyFalse,
         })
 
-        if (isUnstableAgent && isRunInBackgroundExplicitlyFalse) {
-          const systemContent = buildSystemContent({
-            skillContent,
-            skillContents,
-            categoryPromptAppend,
-            agentName: agentToUse,
-            maxPromptTokens,
-            model: categoryModel,
-            availableCategories,
-            availableSkills,
-            nativeSkillInfos,
-          })
-          return executeUnstableAgentTask(delegateTaskArgs, ctx, options, parentContext, agentToUse, categoryModel, systemContent, actualModel)
-        }
       } else {
-        const resolution = await resolveSubagentExecution(delegateTaskArgs, options, parentContext.agent, categoryExamples)
+        const requestedAgent = delegateTaskArgs.requested_subagent_type?.toLowerCase()
+        const resolution = await resolveSubagentExecution(
+          delegateTaskArgs,
+          options,
+          parentContext.agent,
+          categoryExamples,
+          { allowPrimaryAgentDelegation: requestedAgent === "ariadne" || requestedAgent === "hermes" },
+        )
         if (resolution.error) {
           return resolution.error
         }
@@ -203,9 +236,23 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
         fallbackChain = resolution.fallbackChain
       }
 
+      const unavailableSkills = resolveUnavailable(agentToUse)
+      const skillResolution = await resolveSkillContent(delegateTaskArgs.load_skills, {
+        gitMasterConfig: options.gitMasterConfig,
+        browserProvider: options.browserProvider,
+        disabledSkills: options.disabledSkills,
+        teamModeEnabled: options.teamModeEnabled,
+        directory: options.directory,
+        targetAgent: agentToUse,
+        nativeSkillEntries,
+        getLoadedSkills: options.getLoadedSkills,
+        unavailableSkills,
+      })
+      if (skillResolution.error) return skillResolution.error
+
       const systemContent = buildSystemContent({
-        skillContent,
-        skillContents,
+        skillContent: skillResolution.content,
+        skillContents: skillResolution.contents,
         categoryPromptAppend,
         agentName: agentToUse,
         maxPromptTokens,
@@ -213,7 +260,12 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
         availableCategories,
         availableSkills,
         nativeSkillInfos,
+        unavailableSkills,
       })
+
+      if (isUnstableAgent && isExplicitSyncRun(delegateTaskArgs.run_in_background)) {
+        return executeUnstableAgentTask(delegateTaskArgs, ctx, options, parentContext, agentToUse, categoryModel, systemContent, actualModel)
+      }
 
       if (runInBackground) {
         return executeBackgroundTask(delegateTaskArgs, ctx, options, parentContext, agentToUse, categoryModel, systemContent, fallbackChain)

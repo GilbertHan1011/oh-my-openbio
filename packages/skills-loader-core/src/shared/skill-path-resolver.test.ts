@@ -2,6 +2,17 @@ import { describe, it, expect } from "bun:test"
 import { resolveSkillPathReferences } from "./skill-path-resolver"
 
 describe("resolveSkillPathReferences", () => {
+	it("resolves the skill directory token", () => {
+		//#given
+		const content = "Run {{skill_dir}}/scripts/check.sh"
+
+		//#when
+		const result = resolveSkillPathReferences(content, "/skills/planning-with-files")
+
+		//#then
+		expect(result).toBe("Run /skills/planning-with-files/scripts/check.sh")
+	})
+
 	it("resolves @path references containing a slash to absolute paths", () => {
 		//#given
 		const content = "Run `python3 @scripts/search.py` to search"

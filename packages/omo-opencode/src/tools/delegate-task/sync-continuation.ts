@@ -97,7 +97,8 @@ export async function executeSyncContinuation(
   executorCtx: ExecutorContext,
   parentContext: ParentContext,
   deps: SyncContinuationDeps = syncContinuationDeps,
-  systemContent?: string
+  systemContent?: string,
+  expectedAgent?: string,
 ): Promise<string> {
   const { client, syncPollTimeoutMs, sisyphusAgentConfig } = executorCtx
   const toastManager = getTaskToastManager()
@@ -129,6 +130,10 @@ export async function executeSyncContinuation(
     resumeModel = resumeContext.resumeModel
     resumeVariant = resumeContext.resumeVariant
     anchorMessageCount = resumeContext.anchorMessageCount
+
+    if (expectedAgent !== undefined && resumeAgent !== expectedAgent) {
+      return `Cannot continue task "${continuationID}": target agent changed from ${expectedAgent} to ${resumeAgent ?? "unknown"}.`
+    }
 
     const resumeModelForMetadata = resumeModel && resumeVariant !== undefined
       ? { ...resumeModel, variant: resumeVariant }

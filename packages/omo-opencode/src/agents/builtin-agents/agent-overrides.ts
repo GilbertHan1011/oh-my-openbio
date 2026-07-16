@@ -1,5 +1,5 @@
 import type { AgentConfig } from "@opencode-ai/sdk"
-import type { AgentOverrideConfig } from "../types"
+import type { AgentConfigWithSkillPolicy, AgentOverrideConfig } from "../types"
 import type { CategoryConfig } from "../../config/schema"
 import { deepMerge, migrateAgentConfig } from "../../shared"
 import { resolvePromptAppend } from "./resolve-file-uri"
@@ -41,7 +41,8 @@ export function mergeAgentConfig(
   directory?: string
 ): AgentConfig {
   const migratedOverride = migrateAgentConfig(override as Record<string, unknown>) as AgentOverrideConfig
-  const { prompt_append, ...rest } = migratedOverride
+  const { prompt_append, unavailable_skills, ...rest } = migratedOverride
+  const basePolicy = base as AgentConfigWithSkillPolicy
   const merged = deepMerge(base, rest as Partial<AgentConfig>)
 
   if (merged.prompt && typeof merged.prompt === 'string' && merged.prompt.startsWith('file://')) {
@@ -50,6 +51,15 @@ export function mergeAgentConfig(
 
   if (prompt_append && merged.prompt) {
     merged.prompt = merged.prompt + "\n" + resolvePromptAppend(prompt_append, directory)
+  }
+
+  const mergedUnavailableSkills = Array.from(new Set([
+    ...(basePolicy.unavailable_skills ?? []),
+    ...(unavailable_skills ?? []),
+  ]))
+  if (mergedUnavailableSkills.length > 0) {
+    const mergedPolicy = merged as AgentConfigWithSkillPolicy
+    mergedPolicy.unavailable_skills = mergedUnavailableSkills
   }
 
   return merged

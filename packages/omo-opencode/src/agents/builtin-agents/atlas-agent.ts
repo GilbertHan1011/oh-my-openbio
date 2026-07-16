@@ -5,6 +5,7 @@ import type { AvailableAgent, AvailableSkill } from "../dynamic-agent-prompt-bui
 import { AGENT_MODEL_REQUIREMENTS } from "../../shared"
 import { log } from "../../shared/logger"
 import { applyOverrides } from "./agent-overrides"
+import { resolveAgentSkills } from "../agent-skill-resolution"
 import { applyModelResolution } from "./model-resolution"
 import { createAtlasAgent } from "../atlas"
 
@@ -75,5 +76,8 @@ export function maybeCreateAtlasConfig(input: {
 
   orchestratorConfig = applyOverrides(orchestratorConfig, orchestratorOverride, mergedCategories, directory)
 
-  return orchestratorConfig
+  return resolveAgentSkills(orchestratorConfig, {
+    agentName: "atlas",
+    availableSkills,
+  })
 }
