@@ -15,6 +15,7 @@ export interface AvailableSkill {
   name: string
   description: string
   location: "user" | "project" | "plugin"
+  agent?: string
 }
 
 export interface AvailableCategory {

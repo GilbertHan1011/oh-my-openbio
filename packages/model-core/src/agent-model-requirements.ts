@@ -190,4 +190,36 @@ export const AGENT_MODEL_REQUIREMENTS: Record<string, ModelRequirement> = {
       { providers: ["opencode"], model: "big-pickle" },
     ],
   },
+  ariadne: {
+    fallbackChain: [
+      {
+        providers: ["anthropic", "github-copilot", "opencode", "vercel"],
+        model: "claude-sonnet-4-6",
+      },
+      { providers: ["opencode-go", "vercel"], model: "kimi-k2.6" },
+      {
+        providers: ["openai", "github-copilot", "opencode", "vercel"],
+        model: "gpt-5.5",
+        variant: "medium",
+      },
+      { providers: ["opencode-go", "vercel"], model: "minimax-m3" },
+      { providers: ["minimax-coding-plan", "minimax-cn-coding-plan"], model: "MiniMax-M3" },
+      { providers: ["opencode-go", "vercel"], model: "minimax-m2.7" },
+    ],
+  },
+  hermes: {
+    fallbackChain: [
+      {
+        providers: ["openai", "opencode", "vercel"],
+        model: "gpt-5.4-mini-fast",
+      },
+      {
+        providers: ["openai", "github-copilot", "opencode", "vercel"],
+        model: "gpt-5.4-nano",
+      },
+      { providers: ["opencode-go", "vercel"], model: "qwen3.5-plus" },
+      { providers: ["opencode-go", "vercel"], model: "minimax-m2.7-highspeed" },
+      { providers: ["anthropic", "github-copilot", "vercel"], model: "claude-haiku-4-5" },
+    ],
+  },
 };

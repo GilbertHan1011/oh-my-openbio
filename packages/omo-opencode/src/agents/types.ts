@@ -64,6 +64,11 @@ export type AgentFactory = ((model: string) => AgentConfig) & {
   mode: AgentMode;
 };
 
+export type AgentConfigWithSkillPolicy = AgentConfig & {
+  skills?: readonly string[];
+  unavailable_skills?: readonly string[];
+};
+
 /**
  * Agent category for grouping in Sisyphus prompt sections
  */
@@ -150,7 +155,9 @@ export type BuiltinAgentName =
   | "metis"
   | "momus"
   | "atlas"
-  | "sisyphus-junior";
+  | "sisyphus-junior"
+  | "ariadne"
+  | "hermes";
 
 export type OverridableAgentName = "build" | BuiltinAgentName;
 
@@ -160,6 +167,7 @@ export type AgentOverrideConfig = Partial<AgentConfig> & {
   category?: string;
   prompt_append?: string;
   skills?: string[];
+  unavailable_skills?: string[];
   tools?: Record<string, boolean>;
   variant?: string;
   fallback_models?: string | (string | import("../config/schema/fallback-models").FallbackModelObject)[];

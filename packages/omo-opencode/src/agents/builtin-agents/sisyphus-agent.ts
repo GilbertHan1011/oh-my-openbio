@@ -10,6 +10,7 @@ import { applyModelResolution, getFirstFallbackModel } from "./model-resolution"
 import { createSisyphusAgent } from "../sisyphus"
 import { applyFrontierToolSchemaPermission } from "../frontier-tool-schema-guard"
 import { setSisyphusRuntimePromptContext } from "../sisyphus-runtime-prompt-reconciler"
+import { resolveAgentSkills } from "../agent-skill-resolution"
 
 export function maybeCreateSisyphusConfig(input: {
   disabledAgents: string[]
@@ -128,5 +129,8 @@ export function maybeCreateSisyphusConfig(input: {
     },
   })
 
-  return sisyphusConfig
+  return resolveAgentSkills(sisyphusConfig, {
+    agentName: "sisyphus",
+    availableSkills,
+  })
 }
