@@ -135,6 +135,7 @@ export interface LaunchInput {
 
 export interface ResumeInput {
   sessionId: string
+  expectedAgent?: string
   prompt: string
   parentSessionId: string
   parentMessageId: string

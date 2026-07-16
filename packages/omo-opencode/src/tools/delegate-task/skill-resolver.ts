@@ -14,6 +14,7 @@ import { log } from "../../shared/logger"
 import { mergeNativeSkills } from "../skill/native-skills"
 import type { NativeSkillEntry } from "../skill/native-skills"
 import { matchSkillByName } from "../skill/skill-matcher"
+import { buildAgentUnavailableSet, isSkillUnavailable } from "../../agents/agent-skill-availability"
 import type { DelegateTaskToolOptions } from "./types"
 
 type ResolveSkillContentOptions = {
@@ -26,6 +27,12 @@ type ResolveSkillContentOptions = {
   nativeSkills?: DelegateTaskToolOptions["nativeSkills"]
   nativeSkillEntries?: NativeSkillEntry[]
   getLoadedSkills?: DelegateTaskToolOptions["getLoadedSkills"]
+  /**
+   * Agent-scoped denylist of skill names. Skills whose name (or `shared/<name>`
+   * alias) matches an entry here are dropped before resolution and at the
+   * available-skills reporting layer.
+   */
+  unavailableSkills?: readonly string[]
 }
 
 function isSkillAllowedForTargetAgent(skill: LoadedSkill, targetAgent: string | undefined): boolean {
@@ -76,6 +83,16 @@ export async function resolveSkillContent(
     return { content: undefined, contents: [], error: null }
   }
 
+  const unavailableSet = buildAgentUnavailableSet(options.unavailableSkills)
+  const unavailableRequestedSkill = skills.find((skill) => isSkillUnavailable(skill, unavailableSet))
+  if (unavailableRequestedSkill) {
+    return {
+      content: undefined,
+      contents: [],
+      error: `Skill "${unavailableRequestedSkill}" is unavailable for target agent "${options.targetAgent ?? "unknown"}" via unavailable_skills.`,
+    }
+  }
+
   const baseSkills = await loadBaseSkills(options)
   let nativeEntries = options.nativeSkillEntries
   let nativeMerged = false
@@ -84,6 +101,13 @@ export async function resolveSkillContent(
     if (nativeMerged) return
     nativeEntries = await loadNativeSkillEntries(options.nativeSkills, nativeEntries)
     mergeNativeSkills(baseSkills, nativeEntries, options.disabledSkills)
+    if (unavailableSet.entries.size > 0) {
+      for (let i = baseSkills.length - 1; i >= 0; i--) {
+        if (isSkillUnavailable(baseSkills[i]!.name, unavailableSet)) {
+          baseSkills.splice(i, 1)
+        }
+      }
+    }
     nativeMerged = true
   }
 
@@ -115,6 +139,13 @@ export async function resolveSkillContent(
     if (!skill) {
       notFound.push(name)
       continue
+    }
+    if (isSkillUnavailable(skill.name, unavailableSet)) {
+      return {
+        content: undefined,
+        contents: [],
+        error: `Skill "${skill.name}" is unavailable for target agent "${options.targetAgent ?? "unknown"}" via unavailable_skills.`,
+      }
     }
     if (!isSkillAllowedForTargetAgent(skill, options.targetAgent)) {
       log("[skill-resolver] filtered agent-restricted skill for delegate target", {

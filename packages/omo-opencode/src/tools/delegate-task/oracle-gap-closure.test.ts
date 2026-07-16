@@ -8,6 +8,11 @@ import * as executor from "./executor"
 
 const runtimeRequire = require as NodeJS.Require & { cache?: Record<string, unknown> }
 const MODEL = { providerID: "openai", modelID: "gpt-5.4" }
+const AVAILABLE_MODELS = new Set([
+  "anthropic/claude-sonnet-4-6",
+  "anthropic/claude-opus-4-7",
+  "openai/gpt-5.4",
+])
 
 function clearRequireCache(modulePath: string): void {
   const resolvedPath = runtimeRequire.resolve(modulePath)
@@ -232,7 +237,11 @@ describe("delegate-task Oracle gap closure", () => {
           }
         },
       },
-      client: {},
+      client: {
+        session: {
+          messages: async () => ({ data: [{ info: { agent: "explore", model: MODEL } }] }),
+        },
+      },
     })
 
     //#when
@@ -247,5 +256,84 @@ describe("delegate-task Oracle gap closure", () => {
     //#then
     expect(resumeCalls[0]?.prompt).toContain("skill instructions")
     expect(resumeCalls[0]?.prompt).toContain("keep going")
+  })
+
+  test("#given Hermes is target and workflow is requested #when task resolves skills #then child launch is skipped with target denial", async () => {
+    //#given
+    const { createDelegateTask } = require("./tools")
+    let launchCount = 0
+    const delegateTask = createDelegateTask({
+      directory: "/tmp",
+      manager: {
+        launch: async () => {
+          launchCount += 1
+          return { id: "unexpected", sessionID: "unexpected", description: "unexpected", agent: "hermes", status: "pending" }
+        },
+      },
+      client: {
+        app: { agents: async () => ({ data: [{ name: "hermes", mode: "primary" }] }) },
+        config: { get: async () => ({ data: { model: "anthropic/claude-sonnet-4-6" } }) },
+        provider: { list: async () => ({ data: { connected: ["anthropic", "openai"] } }) },
+        model: { list: async () => ({ data: [] }) },
+        session: { status: async () => ({ data: {} }) },
+      },
+      connectedProvidersOverride: ["anthropic", "openai"],
+      availableModelsOverride: AVAILABLE_MODELS,
+      unavailableSkillsResolver: (agentName) => agentName === "hermes" ? ["data-analysis-workflow"] : [],
+      getLoadedSkills: async () => [],
+    })
+
+    //#when
+    const result = await delegateTask.execute({
+      description: "Hermes denial",
+      prompt: "Use the workflow",
+      subagent_type: "hermes",
+      run_in_background: true,
+      load_skills: ["shared/data-analysis-workflow"],
+    }, makeMockCtx())
+
+    //#then
+    expect(result).toContain('unavailable for target agent "hermes"')
+    expect(launchCount).toBe(0)
+  })
+
+  test("#given Ariadne is target and workflow is requested #when task resolves skills #then child launch receives the resolved request", async () => {
+    //#given
+    const { createDelegateTask } = require("./tools")
+    let launchInput: { agent?: string; prompt?: string } = {}
+    const delegateTask = createDelegateTask({
+      directory: "/tmp",
+      manager: {
+        launch: async (input: { agent?: string; prompt?: string }) => {
+          launchInput = input
+          return { id: "ariadne-task", sessionId: "ariadne-session", description: "Ariadne task", agent: "ariadne", status: "pending" }
+        },
+      },
+      client: {
+        app: { agents: async () => ({ data: [{ name: "ariadne", mode: "primary" }] }) },
+        config: { get: async () => ({ data: { model: "anthropic/claude-sonnet-4-6" } }) },
+        provider: { list: async () => ({ data: { connected: ["anthropic", "openai"] } }) },
+        model: { list: async () => ({ data: [] }) },
+        session: { status: async () => ({ data: {} }) },
+      },
+      connectedProvidersOverride: ["anthropic", "openai"],
+      availableModelsOverride: AVAILABLE_MODELS,
+      unavailableSkillsResolver: () => [],
+      getLoadedSkills: async () => [],
+    })
+
+    //#when
+    const result = await delegateTask.execute({
+      description: "Ariadne dispatch",
+      prompt: "Use the workflow",
+      subagent_type: "ariadne",
+      run_in_background: true,
+      load_skills: [],
+    }, makeMockCtx())
+
+    //#then
+    expect(result).toContain("ariadne-task")
+    expect(launchInput.agent).toBe("ariadne")
+    expect(launchInput.prompt).toContain("Use the workflow")
   })
 })
