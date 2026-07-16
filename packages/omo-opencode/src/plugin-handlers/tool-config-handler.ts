@@ -143,6 +143,16 @@ export function applyToolConfig(params: {
       interactive_bash: "deny",
     };
   }
+  for (const agentKey of ["ariadne", "hermes"] as const) {
+    const agent = agentByKey(params.agentResult, agentKey, params.pluginConfig);
+    if (agent) {
+      agent.permission = {
+        ...agent.permission,
+        task: "allow",
+        call_omo_agent: "deny",
+      };
+    }
+  }
   const junior = agentByKey(params.agentResult, "sisyphus-junior", params.pluginConfig);
   if (junior) {
     junior.permission = {

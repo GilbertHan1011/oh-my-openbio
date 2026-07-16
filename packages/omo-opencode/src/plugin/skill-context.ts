@@ -225,6 +225,7 @@ export async function createSkillContext(args: {
     name: skill.name,
     description: skill.definition.description ?? "",
     location: mapScopeToLocation(skill.scope),
+    ...(skill.definition.agent ? { agent: skill.definition.agent } : {}),
   }))
 
   return {

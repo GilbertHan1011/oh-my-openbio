@@ -51,4 +51,20 @@ export interface SkillLoadOptions {
     dirs(): string[] | Promise<string[]>
   }
   includeSkillsInDescription?: boolean
+  /**
+   * Agent-scoped denylist of skill names. Skills whose name (or `shared/<name>`
+   * alias) matches an entry here are filtered out of the tool description and
+   * rejected at execution time. This is a monotonic Agent denylist and is
+   * applied AFTER the existing Skill `agent:` allowlist.
+   */
+  unavailableSkills?: readonly string[]
+  /**
+   * Resolver that maps the currently-active agent name (from `ToolContext.agent`)
+   * to its `unavailable_skills` denylist. Used when the same `skill` tool is
+   * shared across multiple agents and the denylist must be evaluated at call
+   * time. Takes precedence over the static `unavailableSkills` field.
+   */
+  unavailableSkillsResolver?: (agentName: string | undefined) => readonly string[] | undefined
+  /** Synchronous agent lookup used when OpenCode reads the shared tool description. */
+  getDescriptionAgent?: () => string | undefined
 }

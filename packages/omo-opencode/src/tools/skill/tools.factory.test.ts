@@ -22,8 +22,9 @@ function createMockSkill(name: string): LoadedSkill {
 }
 
 async function flushMicrotasks(): Promise<void> {
-  await Promise.resolve()
-  await Promise.resolve()
+  for (let index = 0; index < 8; index += 1) {
+    await Promise.resolve()
+  }
 }
 
 const loadedSkill = createMockSkill("lazy-skill")
@@ -198,5 +199,52 @@ describe("createSkillTool", () => {
     // then
     expect(skillTool.description).toContain("<name>/lazy-skill</name>")
     expect(skillTool.description).toContain("<name>/seeded-command</name>")
+  })
+
+  it("rejects a skill denied for the executing agent without returning its body", async () => {
+    const deniedSkill = createMockSkill("data-analysis-workflow")
+    const skillTool = await createSkillTool({
+      skills: [deniedSkill],
+      commands: [],
+      directory: "/test",
+      includeSkillsInDescription: true,
+      unavailableSkills: ["data-analysis-workflow"],
+      unavailableSkillsResolver: (agentName) =>
+        agentName === "hermes" ? ["shared/data-analysis-workflow"] : [],
+    })
+    const hermesContext = { ...mockContext, agent: "hermes" }
+
+    expect(skillTool.description).not.toContain("data-analysis-workflow")
+    await expect(
+      skillTool.execute({ name: "data-analysis-workflow" }, hermesContext),
+    ).rejects.toThrow('Skill "data-analysis-workflow" is unavailable')
+  })
+
+  it("refreshes the shared description for the active agent", async () => {
+    // given
+    const workflow = createMockSkill("data-analysis-workflow")
+    let activeAgent: string | undefined = "ariadne"
+    const skillTool = await createSkillTool({
+      skills: [workflow],
+      commands: [],
+      includeSkillsInDescription: true,
+      unavailableSkillsResolver: (agentName) =>
+        agentName === "hermes" ? ["data-analysis-workflow"] : [],
+      getDescriptionAgent: () => activeAgent,
+    })
+
+    // when
+    await flushMicrotasks()
+
+    // then
+    expect(skillTool.description).toContain("data-analysis-workflow")
+
+    // when
+    activeAgent = "hermes"
+    void skillTool.description
+    await flushMicrotasks()
+
+    // then
+    expect(skillTool.description).not.toContain("data-analysis-workflow")
   })
 })
