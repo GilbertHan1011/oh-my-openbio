@@ -102,6 +102,17 @@ export function createInternalAgentTextPart(text: string): {
   }
 }
 
+export function createSyntheticInternalAgentTextPart(text: string): {
+  type: "text"
+  text: string
+  synthetic: true
+} {
+  return {
+    ...createInternalAgentTextPart(text),
+    synthetic: true,
+  }
+}
+
 export function createInternalAgentContinuationTextPart(text: string): {
   type: "text"
   text: string

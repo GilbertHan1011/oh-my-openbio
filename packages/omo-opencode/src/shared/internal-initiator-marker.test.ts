@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test"
 import {
   createInternalAgentContinuationTextPart,
   createInternalAgentTextPart,
+  createSyntheticInternalAgentTextPart,
   hasInternalInitiatorMarker,
   hasInternalNoReplyMarker,
   isRealUserMessage,
@@ -92,6 +93,22 @@ describe("internal-initiator-marker", () => {
 
       // then
       expect(part.text).toBe(`\n${OMO_INTERNAL_INITIATOR_MARKER}`)
+    })
+  })
+
+  describe("createSyntheticInternalAgentTextPart", () => {
+    test("#given internal text #when creating a synthetic text part #then preserves the marker and hides the part", () => {
+      // given
+      const text = "Background wake"
+
+      // when
+      const part = createSyntheticInternalAgentTextPart(text)
+
+      // then
+      expect(part.type).toBe("text")
+      expect(part.text).toBe(`Background wake\n${OMO_INTERNAL_INITIATOR_MARKER}`)
+      expect(part.synthetic).toBe(true)
+      expect("metadata" in part).toBe(false)
     })
   })
 

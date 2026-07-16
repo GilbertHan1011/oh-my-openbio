@@ -143,6 +143,29 @@ afterEach(() => {
 })
 
 describe("parent wake noReply admission liveness (issues #4874/#5086)", () => {
+  test("#given a background completion wake #when it is dispatched to the parent #then its text part is synthetic", async () => {
+    // given
+    const { notifier, promptAsyncCalls } = createNotifier({
+      sessionStatuses: { "parent-1": { type: "idle" } },
+      messagesProvider: () => SAFE_MESSAGES,
+    })
+    notifier.queuePendingParentWake("parent-1", FINAL_WAKE, { agent: "sisyphus" }, true)
+
+    try {
+      // when
+      await notifier.flushPendingParentWake("parent-1")
+
+      // then: internal wakes must not be rendered as user-authored text
+      expect(promptAsyncCalls).toHaveLength(1)
+      expect(promptAsyncCalls[0]?.body.parts?.[0]).toMatchObject({
+        type: "text",
+        synthetic: true,
+      })
+    } finally {
+      notifier.shutdown()
+    }
+  })
+
   test("#given all-complete wake admitted as noReply during history deferral #then reply liveness is retained and resumes once safe", async () => {
     // given
     const originalDateNow = Date.now
