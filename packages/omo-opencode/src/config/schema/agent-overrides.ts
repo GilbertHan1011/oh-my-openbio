@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { BuiltinCommandNameSchema } from "./commands"
 import { FallbackModelsSchema } from "./fallback-models"
 import { AgentPermissionSchema } from "./internal/permission"
 
@@ -13,6 +14,8 @@ export const AgentOverrideConfigSchema = z.object({
   skills: z.array(z.string()).optional(),
   /** Skill names this agent is not permitted to use or see */
   unavailable_skills: z.array(z.string()).optional(),
+  /** Built-in commands this agent is not permitted to run */
+  unavailable_commands: z.array(BuiltinCommandNameSchema).optional(),
   temperature: z.number().min(0).max(2).optional(),
   top_p: z.number().min(0).max(1).optional(),
   prompt: z.string().optional(),

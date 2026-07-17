@@ -35,4 +35,37 @@ describe("AgentOverridesSchema", () => {
 
     expect(result.success).toBe(false)
   })
+
+  test("preserves unavailable built-in commands for an agent", () => {
+    // given
+    const input = {
+      hermes: {
+        unavailable_commands: ["ulw-loop"],
+      },
+    }
+
+    // when
+    const result = AgentOverridesSchema.safeParse(input)
+
+    // then
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.hermes?.unavailable_commands).toEqual(["ulw-loop"])
+    }
+  })
+
+  test("rejects an unknown unavailable command", () => {
+    // given
+    const input = {
+      hermes: {
+        unavailable_commands: ["not-a-command"],
+      },
+    }
+
+    // when
+    const result = AgentOverridesSchema.safeParse(input)
+
+    // then
+    expect(result.success).toBe(false)
+  })
 })

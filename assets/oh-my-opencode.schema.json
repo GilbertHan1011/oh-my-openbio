@@ -269,6 +269,22 @@
                 "type": "string"
               }
             },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
+              }
+            },
             "temperature": {
               "type": "number",
               "minimum": 0,
@@ -636,6 +652,22 @@
               "type": "array",
               "items": {
                 "type": "string"
+              }
+            },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
               }
             },
             "temperature": {
@@ -1007,6 +1039,22 @@
                 "type": "string"
               }
             },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
+              }
+            },
             "temperature": {
               "type": "number",
               "minimum": 0,
@@ -1374,6 +1422,22 @@
               "type": "array",
               "items": {
                 "type": "string"
+              }
+            },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
               }
             },
             "temperature": {
@@ -1748,6 +1812,22 @@
                 "type": "string"
               }
             },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
+              }
+            },
             "temperature": {
               "type": "number",
               "minimum": 0,
@@ -2115,6 +2195,22 @@
               "type": "array",
               "items": {
                 "type": "string"
+              }
+            },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
               }
             },
             "temperature": {
@@ -2486,6 +2582,22 @@
                 "type": "string"
               }
             },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
+              }
+            },
             "temperature": {
               "type": "number",
               "minimum": 0,
@@ -2853,6 +2965,22 @@
               "type": "array",
               "items": {
                 "type": "string"
+              }
+            },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
               }
             },
             "temperature": {
@@ -3224,6 +3352,22 @@
                 "type": "string"
               }
             },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
+              }
+            },
             "temperature": {
               "type": "number",
               "minimum": 0,
@@ -3591,6 +3735,22 @@
               "type": "array",
               "items": {
                 "type": "string"
+              }
+            },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
               }
             },
             "temperature": {
@@ -3962,6 +4122,22 @@
                 "type": "string"
               }
             },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
+              }
+            },
             "temperature": {
               "type": "number",
               "minimum": 0,
@@ -4329,6 +4505,22 @@
               "type": "array",
               "items": {
                 "type": "string"
+              }
+            },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
               }
             },
             "temperature": {
@@ -4700,6 +4892,22 @@
                 "type": "string"
               }
             },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
+              }
+            },
             "temperature": {
               "type": "number",
               "minimum": 0,
@@ -5067,6 +5275,22 @@
               "type": "array",
               "items": {
                 "type": "string"
+              }
+            },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
               }
             },
             "temperature": {
@@ -5438,6 +5662,22 @@
                 "type": "string"
               }
             },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
+              }
+            },
             "temperature": {
               "type": "number",
               "minimum": 0,
@@ -5805,6 +6045,22 @@
               "type": "array",
               "items": {
                 "type": "string"
+              }
+            },
+            "unavailable_commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ralph-loop",
+                  "ulw-loop",
+                  "cancel-ralph",
+                  "refactor",
+                  "start-work",
+                  "stop-continuation",
+                  "remove-ai-slops",
+                  "hyperplan"
+                ]
               }
             },
             "temperature": {
@@ -6175,6 +6431,22 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "unavailable_commands": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ralph-loop",
+                "ulw-loop",
+                "cancel-ralph",
+                "refactor",
+                "start-work",
+                "stop-continuation",
+                "remove-ai-slops",
+                "hyperplan"
+              ]
             }
           },
           "temperature": {
