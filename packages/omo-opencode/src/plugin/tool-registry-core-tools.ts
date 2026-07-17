@@ -6,7 +6,7 @@ import type { SkillContext } from "./skill-context"
 import type { PluginContext, ToolsRecord } from "./types"
 import type { ToolRegistryFactories } from "./tool-registry-factories"
 
-import { getMainSessionID } from "../features/claude-code-session-state"
+import { getMainSessionID, getSessionAgent } from "../features/claude-code-session-state"
 import * as openclawRuntimeDispatch from "../openclaw/runtime-dispatch"
 import { log } from "../shared"
 import { getSisyphusJuniorModelOverride } from "./tool-registry-team-tools"
@@ -142,6 +142,10 @@ export function createCoreTools(args: {
     includeSkillsInDescription: true,
     unavailableSkills: globallyUnavailableSkills,
     unavailableSkillsResolver: resolveUnavailableSkills,
+    getDescriptionAgent: () => {
+      const sessionID = getMainSessionID()
+      return sessionID ? getSessionAgent(sessionID) : undefined
+    },
   })
 
   const tools: ToolsRecord = {

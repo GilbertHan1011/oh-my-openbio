@@ -1,5 +1,10 @@
-import { describe, expect, mock, test } from "bun:test"
+import { afterEach, describe, expect, mock, test } from "bun:test"
 import { tool } from "@opencode-ai/plugin"
+import {
+  _resetForTesting,
+  setMainSession,
+  updateSessionAgent,
+} from "../features/claude-code-session-state"
 import type { SkillLoadOptions } from "../tools/skill/types"
 import type { ToolRegistryFactories } from "./tool-registry-factories"
 
@@ -12,6 +17,10 @@ const fakeTool = tool({
   async execute(): Promise<string> {
     return "ok"
   },
+})
+
+afterEach(() => {
+  _resetForTesting()
 })
 
 function createFactories(createSkillTool: (options: SkillLoadOptions) => typeof fakeTool): ToolRegistryFactories {
@@ -83,6 +92,36 @@ describe("#given disabled native skills in the registry skill context", () => {
 })
 
 describe("#given core skill tools are registered", () => {
+  test("#when the main session uses Hermes #then the skill description resolves Hermes", () => {
+    // given
+    const createSkillTool = mock((options: SkillLoadOptions) => fakeTool)
+    setMainSession("main-session")
+    updateSessionAgent("main-session", "Hermes - Fast Executor")
+
+    // when
+    createCoreTools({
+      ctx: unsafeTestValue({ directory: "/tmp/project" }),
+      pluginConfig: unsafeTestValue({}),
+      managers: unsafeTestValue({
+        backgroundManager: {},
+        tmuxSessionManager: {},
+        skillMcpManager: {},
+        modelFallbackControllerAccessor: {},
+      }),
+      skillContext: {
+        mergedSkills: [],
+        availableSkills: [],
+        browserProvider: "playwright",
+        disabledSkills: new Set(),
+      },
+      availableCategories: [],
+      factories: createFactories(createSkillTool),
+    })
+
+    // then
+    expect(createSkillTool.mock.calls[0]?.[0].getDescriptionAgent?.()).toBe("Hermes - Fast Executor")
+  })
+
   test("#when core tools are created #then skill task and skill_mcp share the runtime skill resolver", () => {
     const createSkillTool = mock((options: SkillLoadOptions) => fakeTool)
     const createDelegateTask = mock((options: Parameters<ToolRegistryFactories["createDelegateTask"]>[0]) => fakeTool)
