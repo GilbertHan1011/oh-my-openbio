@@ -1,9 +1,50 @@
-import { describe, expect, mock, test } from "bun:test"
+import { afterEach, describe, expect, mock, test } from "bun:test"
 import { unsafeTestValue } from "../../../../test-support/unsafe-test-value"
+import { _resetForTesting, updateSessionAgent } from "../features/claude-code-session-state"
 
 import { createCommandExecuteBeforeHandler } from "./command-execute-before"
 
 describe("createCommandExecuteBeforeHandler", () => {
+  afterEach(() => {
+    _resetForTesting()
+  })
+
+  test("#given Hermes blocks ulw-loop #when command.execute.before runs #then no loop starts", async () => {
+    // given
+    const startLoop = mock(() => true)
+    updateSessionAgent("ses-hermes", "Hermes - Fast Executor")
+    const handler = createCommandExecuteBeforeHandler(unsafeTestValue({
+      directory: process.cwd(),
+      pluginConfig: {
+        agents: {
+          hermes: { unavailable_commands: ["ulw-loop"] },
+        },
+      },
+      hooks: {
+        ralphLoop: {
+          startLoop,
+          cancelLoop: mock(() => true),
+        },
+      },
+    }))
+    const output = { parts: [] as Array<{ type: string; text?: string }> }
+
+    // when
+    await handler(
+      {
+        command: "ulw-loop",
+        sessionID: "ses-hermes",
+        arguments: "Ship feature",
+      },
+      output,
+    )
+
+    // then
+    expect(startLoop).not.toHaveBeenCalled()
+    expect(output.parts).toHaveLength(1)
+    expect(output.parts[0]?.text?.startsWith("/")).toBe(false)
+  })
+
   test("#given stopped session and /ulw-loop #when command.execute.before runs #then clear is called", async () => {
     // given
     const clear = mock(() => {})

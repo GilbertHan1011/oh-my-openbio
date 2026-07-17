@@ -1,6 +1,9 @@
 import type { CreatedHooks } from "../create-hooks"
+import type { OhMyOpenCodeConfig } from "../config"
+import { getSessionAgent } from "../features/claude-code-session-state"
 import { isRalphLoopResumeArgument, parseRalphLoopArguments } from "../hooks/ralph-loop/command-arguments"
 import { log } from "../shared/logger"
+import { isAgentCommandAvailable } from "./agent-command-availability"
 import { stopContinuation } from "./stop-continuation"
 
 type CommandExecuteBeforeInput = {
@@ -25,18 +28,27 @@ function hasPartsOutput(value: unknown): value is CommandExecuteBeforeOutput {
 
 export function createCommandExecuteBeforeHandler(args: {
   directory: string
+  pluginConfig: OhMyOpenCodeConfig
   hooks: CreatedHooks
 }): (
   input: CommandExecuteBeforeInput,
   output: CommandExecuteBeforeOutput,
 ) => Promise<void> {
-  const { directory, hooks } = args
+  const { directory, pluginConfig, hooks } = args
 
   return async (input, output): Promise<void> => {
-    await hooks.autoSlashCommand?.["command.execute.before"]?.(input, output)
-
     const normalizedCommand = input.command.toLowerCase()
     const sessionID = input.sessionID
+    if (!isAgentCommandAvailable(pluginConfig, getSessionAgent(sessionID), normalizedCommand)) {
+      output.parts.splice(0, output.parts.length, {
+        type: "text",
+        text: "This command is unavailable for the active agent.",
+      })
+      return
+    }
+
+    await hooks.autoSlashCommand?.["command.execute.before"]?.(input, output)
+
     if (normalizedCommand === "stop-continuation" && sessionID) {
       stopContinuation({ directory, hooks, sessionID })
     }

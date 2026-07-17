@@ -58,6 +58,7 @@ export function createPluginInterface(args: {
 
     "command.execute.before": createCommandExecuteBeforeHandler({
       directory: ctx.directory,
+      pluginConfig,
       hooks,
     }),
 

@@ -256,6 +256,58 @@ describe("createPluginInterface - ulw-loop native command smoke", () => {
       },
     ])
   })
+
+  test("does not start the native ultrawork loop for an agent that blocks it", async () => {
+    // given
+    const startLoopCalls: string[] = []
+    updateSessionAgent("ses-hermes-native", "Hermes - Fast Executor")
+    const pluginInterface = createPluginInterface({
+      ctx: {
+        directory: testDir,
+        client: { tui: { showToast: async () => {} } },
+      } as never,
+      pluginConfig: {
+        agents: {
+          hermes: { unavailable_commands: ["ulw-loop"] },
+        },
+      } as never,
+      firstMessageVariantGate: {
+        shouldOverride: () => false,
+        markApplied: () => {},
+        markSessionCreated: () => {},
+        clear: () => {},
+      },
+      managers: {} as never,
+      hooks: {
+        ralphLoop: {
+          startLoop: (sessionID: string) => {
+            startLoopCalls.push(sessionID)
+            return true
+          },
+          cancelLoop: () => true,
+        },
+      } as never,
+      tools: {},
+    })
+    const output = {
+      parts: [{ type: "text", text: "/ulw-loop ship it" }],
+    }
+
+    // when
+    await pluginInterface["command.execute.before"]?.(
+      {
+        command: "ulw-loop",
+        sessionID: "ses-hermes-native",
+        arguments: "ship it",
+      },
+      output as never,
+    )
+
+    // then
+    expect(startLoopCalls).toEqual([])
+    expect(output.parts).toHaveLength(1)
+    expect(output.parts[0]?.text?.startsWith("/")).toBe(false)
+  })
 })
 
 describe("createPluginInterface - backward compatibility", () => {
