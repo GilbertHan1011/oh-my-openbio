@@ -440,6 +440,38 @@ describe("createChatMessageHandler - stop continuation clearing for raw slash fa
     expect(stopContinuationGuard.clearCalls).toEqual(["test-session"])
   })
 
+  test("does not start ulw-loop when Hermes makes a raw slash request", async () => {
+    // given
+    const startLoopCalls: string[] = []
+    const args = createMockHandlerArgs({
+      pluginConfig: {
+        agents: {
+          hermes: { unavailable_commands: ["ulw-loop"] },
+        },
+      },
+    })
+    args.hooks.ralphLoop = {
+      startLoop: (sessionID: string) => {
+        startLoopCalls.push(sessionID)
+        return true
+      },
+      cancelLoop: () => true,
+    }
+    const handler = createChatMessageHandler(args)
+    const output: ChatMessageHandlerOutput = {
+      message: {},
+      parts: [{ type: "text", text: "/ulw-loop ship it" }],
+    }
+
+    // when
+    await handler(createMockInput("Hermes - Fast Executor"), output)
+
+    // then
+    expect(startLoopCalls).toEqual([])
+    expect(output.parts).toHaveLength(1)
+    expect(output.parts[0]?.text?.startsWith("/")).toBe(false)
+  })
+
   test("clears stop state before raw /ralph-loop resumes work through chat.message", async () => {
     // given
     const stopContinuationGuard = createStopContinuationGuardMock(true)

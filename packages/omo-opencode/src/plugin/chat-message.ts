@@ -1,8 +1,9 @@
 import type { OhMyOpenCodeConfig } from "../config"
 
-import { updateSessionAgent } from "../features/claude-code-session-state"
-import { detectSlashCommand, extractPromptText } from "../hooks/auto-slash-command/detector"
+import { getSessionAgent, updateSessionAgent } from "../features/claude-code-session-state"
+import { detectSlashCommand, extractPromptText, parseSlashCommand } from "../hooks/auto-slash-command/detector"
 import { isSyntheticOrInternalOnlyTextParts, log } from "../shared"
+import { isAgentCommandAvailable } from "./agent-command-availability"
 import { applyUltraworkModelOverrideOnMessage } from "./ultrawork-model-override"
 import type { PluginContext } from "./types"
 import { handleRalphLoopMessage } from "./chat-message/loop-commands"
@@ -98,7 +99,18 @@ export function createChatMessageHandler(args: {
       updateSessionAgent(input.sessionID, input.agent)
     }
 
-    const slashCommand = detectSlashCommand(extractPromptText(output.parts))
+    const promptText = extractPromptText(output.parts)
+    const requestedCommand = parseSlashCommand(promptText)
+    const agentName = input.agent ?? getSessionAgent(input.sessionID)
+    if (requestedCommand && !isAgentCommandAvailable(pluginConfig, agentName, requestedCommand.command)) {
+      output.parts.splice(0, output.parts.length, {
+        type: "text",
+        text: "This command is unavailable for the active agent.",
+      })
+      return
+    }
+
+    const slashCommand = detectSlashCommand(promptText)
     if (slashCommand?.command === "stop-continuation") {
       stopContinuation({
         directory: ctx.directory,
