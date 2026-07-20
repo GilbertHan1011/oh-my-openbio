@@ -18,6 +18,11 @@ on:
         required: true
         default: false
         type: boolean
+      repair_latest_tag:
+        description: "Remove latest only when it incorrectly points to this beta bootstrap version"
+        required: true
+        default: false
+        type: boolean
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -26,6 +31,7 @@ permissions:
 
 jobs:
   test:
+    if: inputs.repair_latest_tag != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -53,6 +59,7 @@ jobs:
         run: bun test bin/platform.test.ts script/publish-openbio-workflow.test.ts
 
   typecheck:
+    if: inputs.repair_latest_tag != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -83,6 +90,7 @@ jobs:
     needs: [test, typecheck]
     if: >-
       github.repository == 'GilbertHan1011/oh-my-openbio' &&
+      inputs.repair_latest_tag != true &&
       needs.test.result == 'success' &&
       needs.typecheck.result == 'success'
     steps:
@@ -206,8 +214,63 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          PUBLISHED=$(npm view "oh-my-openbio@${VERSION}" version)
-          if [ "$PUBLISHED" != "$VERSION" ]; then
-            echo "::error::Expected oh-my-openbio@${VERSION}, received ${PUBLISHED}."
+          for attempt in {1..6}; do
+            PUBLISHED=$(npm view "oh-my-openbio@${VERSION}" version 2>/dev/null || true)
+            if [ "$PUBLISHED" = "$VERSION" ]; then
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "::error::Expected oh-my-openbio@${VERSION} to become visible in the npm registry after 30 seconds; received ${PUBLISHED:-nothing}."
+          exit 1
+
+  repair-latest-tag:
+    if: >-
+      github.repository == 'GilbertHan1011/oh-my-openbio' &&
+      inputs.repair_latest_tag == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Validate beta tag repair target
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$VERSION" != *-beta.* ]]; then
+            echo "::error::Only beta versions may use the latest-tag repair path."
+            exit 1
+          fi
+
+          BETA=$(npm view oh-my-openbio dist-tags.beta)
+          LATEST=$(npm view oh-my-openbio dist-tags.latest)
+          if [ "$BETA" != "$VERSION" ] || [ "$LATEST" != "$VERSION" ]; then
+            echo "::error::Refusing repair: beta and latest must both point to ${VERSION}; received beta=${BETA}, latest=${LATEST}."
+            exit 1
+          fi
+
+      - name: Remove accidental latest tag from beta bootstrap
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm dist-tag rm oh-my-openbio latest
+
+      - name: Verify beta remains and latest is absent
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          BETA=$(npm view oh-my-openbio dist-tags.beta)
+          if [ "$BETA" != "$VERSION" ]; then
+            echo "::error::Expected beta to remain ${VERSION}; received ${BETA}."
+            exit 1
+          fi
+
+          LATEST=$(npm view oh-my-openbio dist-tags.latest 2>/dev/null || true)
+          if [ -n "$LATEST" ] && [ "$LATEST" != "undefined" ] && [ "$LATEST" != "null" ]; then
+            echo "::error::latest still exists after repair: ${LATEST}."
             exit 1
           fi
