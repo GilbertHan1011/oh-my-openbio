@@ -56,6 +56,11 @@ export type Managers = {
   monitorManager?: MonitorManager
 }
 
+
+function isHeadlessWebCommand(processArgs: readonly string[]): boolean {
+  return processArgs.some((argument) => argument === "serve" || argument === "web")
+}
+
 export function createManagers(args: {
   ctx: PluginContext
   pluginConfig: OhMyOpenCodeConfig
@@ -63,6 +68,8 @@ export function createManagers(args: {
   modelCacheState: ModelCacheState
   backgroundNotificationHookEnabled: boolean
   runtimeSkillSourceUrl?: string
+  /** Injectable only for deterministic runtime-mode tests. */
+  processArgs?: readonly string[]
   deps?: Partial<CreateManagersDeps>
 }): Managers {
   const { ctx, pluginConfig, tmuxConfig, modelCacheState, backgroundNotificationHookEnabled, runtimeSkillSourceUrl } = args
@@ -191,7 +198,11 @@ export function createManagers(args: {
     modelFallbackControllerAccessor,
   })
 
-  if (pluginConfig.tui?.sidebar?.enabled !== false) {
+  // The state mirror serves the terminal sidebar. Only the headless `serve`
+  // and `web` commands lack a local terminal consumer. Do not use serverUrl
+  // here: normal and attached terminal TUIs can also have a server URL.
+  const shouldStartTuiStateMirror = pluginConfig.tui?.sidebar?.enabled ?? !isHeadlessWebCommand(args.processArgs ?? process.argv)
+  if (shouldStartTuiStateMirror) {
     tuiStateMirror = new deps.TuiStateMirrorClass({
       client: ctx.client,
       projectDir: ctx.directory,

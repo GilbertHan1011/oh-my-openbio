@@ -71,7 +71,7 @@ function pickRenderedConfigFields(config: ReturnType<typeof validatePluginConfig
 }
 
 describe("validatePluginConfig", () => {
-  it("returns defaults with tui sidebar enabled when no config exists", () => {
+  it("keeps the tui sidebar unset when no config exists", () => {
     withIsolatedConfig("defaults", (root) => {
       const project = join(root, "project")
       mkdirSync(project, { recursive: true })
@@ -81,7 +81,7 @@ describe("validatePluginConfig", () => {
       expect(result.valid).toBe(true)
       expect(result.messages).toEqual([])
       expect(result.path).toBeNull()
-      expect(result.config.tui?.sidebar.enabled).toBe(true)
+      expect(result.config.tui?.sidebar?.enabled).toBeUndefined()
     })
   })
 
@@ -95,7 +95,7 @@ describe("validatePluginConfig", () => {
       const result = validatePluginConfig(project)
 
       expect(result.valid).toBe(true)
-      expect(result.config.tui?.sidebar.enabled).toBe(false)
+      expect(result.config.tui?.sidebar?.enabled).toBe(false)
     })
   })
 
@@ -133,7 +133,7 @@ describe("validatePluginConfig", () => {
       const readonlyResult = validatePluginConfig(child)
       const runtimeConfig = loadPluginConfig(child, {})
 
-      expect(readonlyResult.config.tui?.sidebar.enabled).toBe(true)
+      expect(readonlyResult.config.tui?.sidebar?.enabled).toBe(true)
       expect(pickRenderedConfigFields(readonlyResult.config)).toEqual(pickRenderedConfigFields(runtimeConfig))
     })
   })
@@ -149,7 +149,7 @@ describe("validatePluginConfig", () => {
       const result = validatePluginConfig(project)
 
       expect(result.valid).toBe(false)
-      expect(result.config.tui?.sidebar.enabled).toBe(false)
+      expect(result.config.tui?.sidebar?.enabled).toBe(false)
       expect(result.messages.some((message: string) => message.includes("agents.sisyphus.model"))).toBe(true)
     })
   })
@@ -188,7 +188,7 @@ describe("validatePluginConfig", () => {
       const result = validatePluginConfig(project)
 
       expect(result.valid).toBe(true)
-      expect(result.config.tui?.sidebar.enabled).toBe(false)
+      expect(result.config.tui?.sidebar?.enabled).toBe(false)
       expect(snapshotFiles(configDir)).toEqual(before)
       expect(existsSync(join(configDir, "oh-my-openagent.json"))).toBe(false)
     })

@@ -23,6 +23,7 @@ Complete reference for Oh My OpenCode plugin configuration. During the rename tr
   - [Commands](#commands)
   - [Browser Automation](#browser-automation)
   - [Tmux Integration](#tmux-integration)
+  - [TUI Sidebar State Mirror](#tui-sidebar-state-mirror)
   - [Git Master](#git-master)
   - [Comment Checker](#comment-checker)
   - [Notification](#notification)
@@ -141,6 +142,30 @@ Here's a practical starting configuration:
   "tmux": { "enabled": false },
 }
 ```
+
+---
+
+## TUI Sidebar State Mirror
+
+The terminal sidebar reads a small state-mirror file that is refreshed from OpenCode session state. Its default is runtime-sensitive so a headless Web service does not continually scan sessions and rewrite the mirror file:
+
+- `opencode serve` and `opencode web`: disabled by default.
+- Regular terminal/TUI commands (including an attached terminal context): enabled by default.
+- An explicit `tui.sidebar.enabled` value always overrides the runtime default.
+
+```jsonc
+// Enable mirroring on a headless server when terminal clients need its sidebar state.
+{
+  "tui": { "sidebar": { "enabled": true } }
+}
+
+// Disable mirroring in every runtime, including the local terminal TUI.
+{
+  "tui": { "sidebar": { "enabled": false } }
+}
+```
+
+For a terminal TUI that attaches to a separately started `opencode serve` process, put the `true` override in the configuration read by that server. The mirror is produced by the server-side plugin process.
 
 ---
 

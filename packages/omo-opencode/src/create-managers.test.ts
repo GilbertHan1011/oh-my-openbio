@@ -157,6 +157,13 @@ function createContext(directory: string): PluginInput {
   }
 }
 
+function createCliContext(directory: string): PluginInput {
+  return {
+    ...createContext(directory),
+    serverUrl: undefined as unknown as URL,
+  }
+}
+
 describe("createManagers", () => {
   let dispatchOpenClawEvent: ReturnType<typeof spyOn>
 
@@ -297,13 +304,70 @@ describe("createManagers", () => {
     expect(cleanupArgs?.bgMgr).toBeInstanceOf(MockBackgroundManager)
   })
 
-  it("#given TuiStateMirror is enabled #when managers are created and cleanup runs #then it starts and stops the mirror", async () => {
+  it("#given a server context and an unset TUI sidebar #when managers are created #then it does not start the mirror", () => {
     const args = {
       ctx: createContext("/tmp/project"),
       pluginConfig: OhMyOpenCodeConfigSchema.parse({}),
       tmuxConfig: createTmuxConfig(false),
       modelCacheState: createModelCacheState(),
       backgroundNotificationHookEnabled: false,
+      processArgs: ["opencode", "serve"],
+      deps: createDeps(),
+    }
+
+    const managers = createManagers(args)
+
+    expect(managers.tuiStateMirror).toBeUndefined()
+    expect(tuiMirrorConstructedInputs).toHaveLength(0)
+    expect(tuiMirrorStartCount).toBe(0)
+  })
+
+  it("#given an opencode web process and an unset TUI sidebar #when managers are created #then it does not start the mirror", () => {
+    const args = {
+      ctx: createContext("/tmp/project"),
+      pluginConfig: OhMyOpenCodeConfigSchema.parse({}),
+      tmuxConfig: createTmuxConfig(false),
+      modelCacheState: createModelCacheState(),
+      backgroundNotificationHookEnabled: false,
+      processArgs: ["opencode", "web"],
+      deps: createDeps(),
+    }
+
+    const managers = createManagers(args)
+
+    expect(managers.tuiStateMirror).toBeUndefined()
+    expect(tuiMirrorConstructedInputs).toHaveLength(0)
+    expect(tuiMirrorStartCount).toBe(0)
+  })
+
+  it("#given a terminal context with a server URL and an unset TUI sidebar #when managers are created #then it starts the mirror", () => {
+    const args = {
+      ctx: createContext("/tmp/project"),
+      pluginConfig: OhMyOpenCodeConfigSchema.parse({}),
+      tmuxConfig: createTmuxConfig(false),
+      modelCacheState: createModelCacheState(),
+      backgroundNotificationHookEnabled: false,
+      processArgs: ["opencode", "attach", "http://localhost:4096"],
+      deps: createDeps(),
+    }
+
+    const managers = createManagers(args)
+
+    expect(managers.tuiStateMirror).toBeInstanceOf(MockTuiStateMirror)
+    expect(tuiMirrorConstructedInputs).toHaveLength(1)
+    expect(tuiMirrorStartCount).toBe(1)
+  })
+
+  it("#given TuiStateMirror is explicitly enabled #when managers are created and cleanup runs #then it starts and stops the mirror", async () => {
+    const args = {
+      ctx: createContext("/tmp/project"),
+      pluginConfig: OhMyOpenCodeConfigSchema.parse({
+        tui: { sidebar: { enabled: true } },
+      }),
+      tmuxConfig: createTmuxConfig(false),
+      modelCacheState: createModelCacheState(),
+      backgroundNotificationHookEnabled: false,
+      processArgs: ["opencode", "serve"],
       deps: createDeps(),
     }
 
@@ -322,10 +386,12 @@ describe("createManagers", () => {
     expect(tuiMirrorStopCount).toBe(1)
   })
 
-  it("#given TuiStateMirror is enabled #when normal shutdown runs #then it stops the mirror", async () => {
+  it("#given TuiStateMirror is explicitly enabled #when normal shutdown runs #then it stops the mirror", async () => {
     const args = {
       ctx: createContext("/tmp/project"),
-      pluginConfig: OhMyOpenCodeConfigSchema.parse({}),
+      pluginConfig: OhMyOpenCodeConfigSchema.parse({
+        tui: { sidebar: { enabled: true } },
+      }),
       tmuxConfig: createTmuxConfig(false),
       modelCacheState: createModelCacheState(),
       backgroundNotificationHookEnabled: false,
@@ -344,6 +410,26 @@ describe("createManagers", () => {
   it("#given TuiStateMirror is disabled #when managers are created #then it is not constructed or started", () => {
     const args = {
       ctx: createContext("/tmp/project"),
+      pluginConfig: OhMyOpenCodeConfigSchema.parse({
+        tui: { sidebar: { enabled: false } },
+      }),
+      tmuxConfig: createTmuxConfig(false),
+      modelCacheState: createModelCacheState(),
+      backgroundNotificationHookEnabled: false,
+      processArgs: ["opencode", "serve"],
+      deps: createDeps(),
+    }
+
+    const managers = createManagers(args)
+
+    expect(managers.tuiStateMirror).toBeUndefined()
+    expect(tuiMirrorConstructedInputs).toHaveLength(0)
+    expect(tuiMirrorStartCount).toBe(0)
+  })
+
+  it("#given a CLI context and an explicitly disabled TUI sidebar #when managers are created #then it does not start the mirror", () => {
+    const args = {
+      ctx: createCliContext("/tmp/project"),
       pluginConfig: OhMyOpenCodeConfigSchema.parse({
         tui: { sidebar: { enabled: false } },
       }),

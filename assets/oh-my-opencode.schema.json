@@ -7923,26 +7923,18 @@
     },
     "tui": {
       "default": {
-        "sidebar": {
-          "enabled": true
-        }
+        "sidebar": {}
       },
       "type": "object",
       "properties": {
         "sidebar": {
-          "default": {
-            "enabled": true
-          },
+          "default": {},
           "type": "object",
           "properties": {
             "enabled": {
-              "default": true,
               "type": "boolean"
             }
           },
-          "required": [
-            "enabled"
-          ],
           "additionalProperties": false
         }
       },

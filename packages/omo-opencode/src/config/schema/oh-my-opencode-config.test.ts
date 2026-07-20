@@ -87,7 +87,7 @@ describe("OhMyOpenCodeConfigSchema telemetry", () => {
 })
 
 describe("OhMyOpenCodeConfigSchema tui", () => {
-  it("defaults the TUI sidebar to enabled", () => {
+  it("keeps the TUI sidebar unset when omitted", () => {
     // given
     const rawConfig = {}
 
@@ -95,7 +95,7 @@ describe("OhMyOpenCodeConfigSchema tui", () => {
     const result = OhMyOpenCodeConfigSchema.parse(rawConfig)
 
     // then
-    expect(result.tui?.sidebar.enabled).toBe(true)
+    expect(result.tui?.sidebar?.enabled).toBeUndefined()
   })
 
   it("allows the TUI sidebar to be disabled", () => {
@@ -112,7 +112,7 @@ describe("OhMyOpenCodeConfigSchema tui", () => {
     const result = OhMyOpenCodeConfigSchema.parse(rawConfig)
 
     // then
-    expect(result.tui?.sidebar.enabled).toBe(false)
+    expect(result.tui?.sidebar?.enabled).toBe(false)
   })
 })
 
