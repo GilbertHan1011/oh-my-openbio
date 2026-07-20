@@ -20,6 +20,7 @@ describe("publish-openbio workflow", () => {
     expect(workflow).toContain('https://github.com/GilbertHan1011/oh-my-openbio/issues')
     expect(workflow).toContain('https://github.com/GilbertHan1011/oh-my-openbio#readme')
     expect(workflow).toContain('npm install -g npm@11.18.0')
+    expect(workflow).toContain('run: bun test bin/platform.test.ts script/publish-openbio-workflow.test.ts')
     expect(workflow).toContain("npm publish --ignore-scripts --access public --provenance")
     expect(workflow).toContain('npm view "oh-my-openbio@${VERSION}" version')
     expect(workflow).not.toContain('"oh-my-opencode" |')

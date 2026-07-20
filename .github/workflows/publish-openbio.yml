@@ -44,8 +44,8 @@ jobs:
         run: npm ci && npm run build
         working-directory: packages/lsp-daemon
 
-      - name: Run tests
-        run: bun test
+      - name: Run OpenBio wrapper regression tests
+        run: bun test bin/platform.test.ts script/publish-openbio-workflow.test.ts
 
   typecheck:
     runs-on: ubuntu-latest
