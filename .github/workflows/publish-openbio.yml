@@ -18,7 +18,6 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   test:
@@ -73,6 +72,9 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     needs: [test, typecheck]
     if: >-
       github.repository == 'GilbertHan1011/oh-my-openbio' &&
@@ -89,6 +91,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.12"
+
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@11.18.0
 
       - name: Check that the requested package version is unpublished
         env:
@@ -142,7 +147,13 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          jq --arg version "$VERSION" '.name = "oh-my-openbio" | .version = $VERSION' package.json > tmp.json
+          jq --arg version "$VERSION" '
+            .name = "oh-my-openbio"
+            | .version = $version
+            | .repository = { type: "git", url: "git+https://github.com/GilbertHan1011/oh-my-openbio.git" }
+            | .bugs = { url: "https://github.com/GilbertHan1011/oh-my-openbio/issues" }
+            | .homepage = "https://github.com/GilbertHan1011/oh-my-openbio#readme"
+          ' package.json > tmp.json
           mv tmp.json package.json
           bun run build:codex-install && bun run build:lsp-tools-mcp && bun run build:lsp-daemon && bun run build
           node script/verify-npm-payload.mjs

@@ -66,6 +66,17 @@ describe("resolvePlatformPackageBaseName", () => {
     expect(resolvedPlatformBase).toBe("oh-my-openagent");
   });
 
+  test("maps oh-my-openbio wrapper to oh-my-opencode platform package family", () => {
+    // #given
+    const wrapperPackageName = "oh-my-openbio";
+
+    // #when
+    const resolvedPlatformBase = resolvePlatformPackageBaseName(wrapperPackageName);
+
+    // #then
+    expect(resolvedPlatformBase).toBe("oh-my-opencode");
+  });
+
   test("keeps oh-my-opencode wrapper mapped to oh-my-opencode platform package family", () => {
     // #given
     const wrapperPackageName = "oh-my-opencode";
