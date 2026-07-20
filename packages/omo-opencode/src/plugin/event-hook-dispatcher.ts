@@ -4,6 +4,18 @@ import { resolveMessageEventSessionID, resolveSessionEventID } from "../shared/e
 import { isRecord } from "./event-error-utils";
 import type { EventInput, EventHookRunner } from "./event-types";
 
+const EVENT_PROFILE_ENV = "OMO_EVENT_PROFILE";
+const SLOW_EVENT_HOOK_THRESHOLD_MS = 10;
+const SLOW_EVENT_DISPATCH_THRESHOLD_MS = 20;
+
+function isEventProfilingEnabled(): boolean {
+  return process.env[EVENT_PROFILE_ENV] === "1";
+}
+
+function logEventProfile(message: "hook" | "dispatcher", details: Record<string, unknown>): void {
+  log(`[omo-event-profile] ${message}`, details);
+}
+
 export function getEventSessionID(input: EventInput): string | undefined {
   const properties = input.event.properties;
   if (input.event.type.startsWith("session.")) {
@@ -18,9 +30,12 @@ export function getEventSessionID(input: EventInput): string | undefined {
 }
 
 export function createEventHookRunner(): EventHookRunner {
+  const profilingEnabled = isEventProfilingEnabled();
+
   return async (hookName, handler, input): Promise<void> => {
     if (!handler) return;
 
+    const startedAt = profilingEnabled ? performance.now() : 0;
     try {
       await Promise.resolve(handler(input));
     } catch (error) {
@@ -30,42 +45,68 @@ export function createEventHookRunner(): EventHookRunner {
         sessionID: getEventSessionID(input),
         error: error instanceof Error ? error : String(error),
       });
+    } finally {
+      if (profilingEnabled) {
+        const elapsedMs = performance.now() - startedAt;
+        if (elapsedMs >= SLOW_EVENT_HOOK_THRESHOLD_MS) {
+          logEventProfile("hook", {
+            eventType: input.event.type,
+            hook: hookName,
+            elapsedMs: Number(elapsedMs.toFixed(1)),
+          });
+        }
+      }
     }
   };
 }
 
 export function createEventHookDispatcher(hooks: CreatedHooks, runEventHookSafely: EventHookRunner) {
+  const profilingEnabled = isEventProfilingEnabled();
+
   return async (input: EventInput): Promise<void> => {
-    await runEventHookSafely("autoUpdateChecker", hooks.autoUpdateChecker?.event, input);
-    await runEventHookSafely("codegraphBootstrap", hooks.codegraphBootstrap?.event, input);
-    await runEventHookSafely("astGrepSgProvision", hooks.astGrepSgProvision?.event, input);
-    await runEventHookSafely("legacyPluginToast", hooks.legacyPluginToast?.event, input);
-    await runEventHookSafely("claudeCodeHooks", hooks.claudeCodeHooks?.event, input);
-    await runEventHookSafely("backgroundNotificationHook", hooks.backgroundNotificationHook?.event, input);
-    await runEventHookSafely("sessionNotification", hooks.sessionNotification, input);
-    await runEventHookSafely("todoContinuationEnforcer", hooks.todoContinuationEnforcer?.handler, input);
-    await runEventHookSafely("unstableAgentBabysitter", hooks.unstableAgentBabysitter?.event, input);
-    await runEventHookSafely("preemptiveCompaction", hooks.preemptiveCompaction?.event, input);
-    await runEventHookSafely("directoryAgentsInjector", hooks.directoryAgentsInjector?.event, input);
-    await runEventHookSafely("directoryReadmeInjector", hooks.directoryReadmeInjector?.event, input);
-    await runEventHookSafely("rulesInjector", hooks.rulesInjector?.event, input);
-    await runEventHookSafely("hephaestusAgentsMdInjector", hooks.hephaestusAgentsMdInjector?.event, input);
-    await runEventHookSafely("thinkMode", hooks.thinkMode?.event, input);
-    await runEventHookSafely(
-      "anthropicContextWindowLimitRecovery",
-      hooks.anthropicContextWindowLimitRecovery?.event,
-      input,
-    );
-    await runEventHookSafely("runtimeFallback", hooks.runtimeFallback?.event, input);
-    await runEventHookSafely("agentUsageReminder", hooks.agentUsageReminder?.event, input);
-    await runEventHookSafely("categorySkillReminder", hooks.categorySkillReminder?.event, input);
-    await runEventHookSafely("interactiveBashSession", hooks.interactiveBashSession?.event, input);
-    await runEventHookSafely("ralphLoop", hooks.ralphLoop?.event, input);
-    await runEventHookSafely("stopContinuationGuard", hooks.stopContinuationGuard?.event, input);
-    await runEventHookSafely("compactionContextInjector", hooks.compactionContextInjector?.event, input);
-    await runEventHookSafely("compactionTodoPreserver", hooks.compactionTodoPreserver?.event, input);
-    await runEventHookSafely("writeExistingFileGuard", hooks.writeExistingFileGuard?.event, input);
-    await runEventHookSafely("atlasHook", hooks.atlasHook?.handler, input);
-    await runEventHookSafely("autoSlashCommand", hooks.autoSlashCommand?.event, input);
+    const startedAt = profilingEnabled ? performance.now() : 0;
+    try {
+      await runEventHookSafely("autoUpdateChecker", hooks.autoUpdateChecker?.event, input);
+      await runEventHookSafely("codegraphBootstrap", hooks.codegraphBootstrap?.event, input);
+      await runEventHookSafely("astGrepSgProvision", hooks.astGrepSgProvision?.event, input);
+      await runEventHookSafely("legacyPluginToast", hooks.legacyPluginToast?.event, input);
+      await runEventHookSafely("claudeCodeHooks", hooks.claudeCodeHooks?.event, input);
+      await runEventHookSafely("backgroundNotificationHook", hooks.backgroundNotificationHook?.event, input);
+      await runEventHookSafely("sessionNotification", hooks.sessionNotification, input);
+      await runEventHookSafely("todoContinuationEnforcer", hooks.todoContinuationEnforcer?.handler, input);
+      await runEventHookSafely("unstableAgentBabysitter", hooks.unstableAgentBabysitter?.event, input);
+      await runEventHookSafely("preemptiveCompaction", hooks.preemptiveCompaction?.event, input);
+      await runEventHookSafely("directoryAgentsInjector", hooks.directoryAgentsInjector?.event, input);
+      await runEventHookSafely("directoryReadmeInjector", hooks.directoryReadmeInjector?.event, input);
+      await runEventHookSafely("rulesInjector", hooks.rulesInjector?.event, input);
+      await runEventHookSafely("hephaestusAgentsMdInjector", hooks.hephaestusAgentsMdInjector?.event, input);
+      await runEventHookSafely("thinkMode", hooks.thinkMode?.event, input);
+      await runEventHookSafely(
+        "anthropicContextWindowLimitRecovery",
+        hooks.anthropicContextWindowLimitRecovery?.event,
+        input,
+      );
+      await runEventHookSafely("runtimeFallback", hooks.runtimeFallback?.event, input);
+      await runEventHookSafely("agentUsageReminder", hooks.agentUsageReminder?.event, input);
+      await runEventHookSafely("categorySkillReminder", hooks.categorySkillReminder?.event, input);
+      await runEventHookSafely("interactiveBashSession", hooks.interactiveBashSession?.event, input);
+      await runEventHookSafely("ralphLoop", hooks.ralphLoop?.event, input);
+      await runEventHookSafely("stopContinuationGuard", hooks.stopContinuationGuard?.event, input);
+      await runEventHookSafely("compactionContextInjector", hooks.compactionContextInjector?.event, input);
+      await runEventHookSafely("compactionTodoPreserver", hooks.compactionTodoPreserver?.event, input);
+      await runEventHookSafely("writeExistingFileGuard", hooks.writeExistingFileGuard?.event, input);
+      await runEventHookSafely("atlasHook", hooks.atlasHook?.handler, input);
+      await runEventHookSafely("autoSlashCommand", hooks.autoSlashCommand?.event, input);
+    } finally {
+      if (profilingEnabled) {
+        const elapsedMs = performance.now() - startedAt;
+        if (elapsedMs >= SLOW_EVENT_DISPATCH_THRESHOLD_MS) {
+          logEventProfile("dispatcher", {
+            eventType: input.event.type,
+            elapsedMs: Number(elapsedMs.toFixed(1)),
+          });
+        }
+      }
+    }
   };
 }
