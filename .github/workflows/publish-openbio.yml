@@ -13,6 +13,11 @@ on:
         required: true
         default: beta
         type: string
+      bootstrap:
+        description: "Use NPM_TOKEN only to bootstrap the first beta publication"
+        required: true
+        default: false
+        type: boolean
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -105,7 +110,31 @@ jobs:
             exit 1
           fi
 
+      - name: Validate bootstrap publication request
+        if: inputs.bootstrap == true
+        env:
+          VERSION: ${{ inputs.version }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ "$DIST_TAG" != "beta" ] || [[ "$VERSION" != *-beta.* ]]; then
+            echo "::error::Bootstrap publishing is limited to beta prereleases."
+            exit 1
+          fi
+
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::NPM_TOKEN is required only for the first oh-my-openbio publication."
+            exit 1
+          fi
+
+          PACKAGE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://registry.npmjs.org/oh-my-openbio")
+          if [ "$PACKAGE_STATUS" != "404" ]; then
+            echo "::error::Bootstrap publishing is only allowed before oh-my-openbio exists on npm (HTTP ${PACKAGE_STATUS})."
+            exit 1
+          fi
+
       - name: Verify npm trusted publisher
+        if: inputs.bootstrap != true
         env:
           PACKAGE: oh-my-openbio
           REPOSITORY: ${{ github.repository }}
@@ -158,13 +187,25 @@ jobs:
           bun run build:codex-install && bun run build:lsp-tools-mcp && bun run build:lsp-daemon && bun run build
           node script/verify-npm-payload.mjs
 
-      - name: Publish oh-my-openbio
+      - name: Bootstrap publish oh-my-openbio
+        if: inputs.bootstrap == true
         env:
-          VERSION: ${{ inputs.version }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+        run: npm publish --ignore-scripts --access public --provenance --tag "$DIST_TAG" --loglevel verbose
+
+      - name: Publish oh-my-openbio through trusted publishing
+        if: inputs.bootstrap != true
+        env:
           DIST_TAG: ${{ inputs.dist_tag }}
           NPM_CONFIG_PROVENANCE: true
+        run: npm publish --ignore-scripts --access public --provenance --tag "$DIST_TAG" --loglevel verbose
+
+      - name: Verify published oh-my-openbio version
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          npm publish --ignore-scripts --access public --provenance --tag "$DIST_TAG" --loglevel verbose
           PUBLISHED=$(npm view "oh-my-openbio@${VERSION}" version)
           if [ "$PUBLISHED" != "$VERSION" ]; then
             echo "::error::Expected oh-my-openbio@${VERSION}, received ${PUBLISHED}."
